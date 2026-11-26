@@ -46,6 +46,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          # 0.0.0 = sviluppo prima della prima uscita: nessuna release.
+          if [ "$v" = "0.0.0" ]; then
+            echo "Not released yet (0.0.0)"
+            exit 0
+          fi
           if gh release view "v$v" >/dev/null 2>&1; then
             echo "v$v already released"
             exit 0

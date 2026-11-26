@@ -75,3 +75,42 @@ jobs:
         run: ci/run.sh "Menu entry" desktop-file-validate data/io.github.outlook791.Lagotto.desktop
       - name: Store metadata
         run: ci/run.sh "Store metadata" appstreamcli validate --no-net --explain data/io.github.outlook791.Lagotto.metainfo.xml
+
+  package:
+    name: Main package (RPM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container: "fedora:latest"
+    steps:
+      - run: dnf -y -q install git
+      - uses: actions/checkout@v5
+      - run: ci/deps.sh fedora
+      - run: dnf -y -q install rpm-build
+      - name: Build the RPM
+        run: ci/run.sh "RPM - build" scripts/build-rpm.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lagotto-rpm
+          path: dist/*.rpm
+          retention-days: 30
+
+  install:
+    name: Install the package on a clean Fedora
+    needs: package
+    runs-on: ubuntu-latest
+    container: "fedora:latest"
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: lagotto-rpm
+          path: dist
+      - name: Install and try
+        run: |
+          dnf -y -q install ./dist/*.rpm desktop-file-utils
+          lagotto --help
+          test -x /usr/libexec/lagotto-helper
+          test -f /usr/share/polkit-1/actions/io.github.outlook791.Lagotto.policy
+          desktop-file-validate /usr/share/applications/io.github.outlook791.Lagotto.desktop
+          command -v fls && command -v photorec
+          printf '{"op":"quit"}\n' | /usr/libexec/lagotto-helper serve | grep -q '"ok":true'
+          echo "Package OK"

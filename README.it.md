@@ -11,10 +11,9 @@ Lagotto è un'app gratuita e open source per recuperare i file su Linux. Prende 
 > **Stato: primo sviluppo (tappa 0), non ancora rilasciato.** Funziona dall'inizio alla fine sulle immagini dei dischi ed è stato provato solo dalle verifiche automatiche e su immagini di prova. I dischi veri, con la finestra della password, l'autore non li ha ancora provati.
 >
 > **Fatto con l'AI:** Lagotto è scritto con un assistente AI. Vedi [Come è fatto Lagotto](#come-è-fatto-lagotto).
->
-> Le versioni saranno numerate per data: **anno.mese.uscita del mese**.
 
-**Indice:** [Prima di iniziare](#prima-di-iniziare) · [Come funziona](#come-funziona) · [Cosa può e non può fare](#cosa-può-e-non-può-fare) · [Provalo adesso](#provalo-adesso-dai-sorgenti) · [Riga di comando](#la-riga-di-comando) · [Codici di errore](#quando-qualcosa-va-storto-codici-di-errore) · [Banco di prova](#il-banco-di-prova) · [Come è fatto Lagotto](#come-è-fatto-lagotto) · [Licenza](#licenza)
+
+**Indice:** [Prima di iniziare](#prima-di-iniziare) · [Come funziona](#come-funziona) · [Cosa può e non può fare](#cosa-può-e-non-può-fare) · [Installazione](#installazione) · [Riga di comando](#la-riga-di-comando) · [Codici di errore](#quando-qualcosa-va-storto-codici-di-errore) · [Banco di prova](#il-banco-di-prova) · [Come è fatto Lagotto](#come-è-fatto-lagotto) · [Licenza](#licenza)
 
 ## Prima di iniziare
 
@@ -50,9 +49,19 @@ Alla fine vedi quanti file sono tornati, quanto spazio occupano e quanti sono da
 
 Per leggere un disco vero servono i permessi di amministratore: Lagotto chiede la tua password una volta sola, con la solita finestra del tuo desktop, e un piccolo programma separato (`lagotto-helper`) legge il disco **in sola lettura**. La finestra di Lagotto gira sempre come utente normale.
 
-## Provalo adesso (dai sorgenti)
+## Installazione
 
-Non c'è ancora un pacchetto. Su Fedora:
+**Fedora (e altre distribuzioni RPM):** scarica `lagotto-….rpm` dall'[ultima release](https://github.com/outlook791/Lagotto/releases/latest), poi:
+
+```sh
+sudo dnf install ./lagotto-*.rpm
+```
+
+Installa anche ciò che serve a Lagotto (The Sleuth Kit, TestDisk). Lagotto compare poi nel menu delle applicazioni. Per toglierlo: `sudo dnf remove lagotto`.
+
+I pacchetti per le altre distribuzioni arriveranno.
+
+**Dai sorgenti**, su qualsiasi distribuzione:
 
 ```sh
 sudo dnf install cargo rust gcc fontconfig-devel libxkbcommon-devel sleuthkit testdisk perl-Image-ExifTool
@@ -61,9 +70,9 @@ cargo build --release
 target/release/lagotto-gui
 ```
 
-Su Debian/Ubuntu i pacchetti sono `cargo libfontconfig1-dev libxkbcommon-dev sleuthkit testdisk libimage-exiftool-perl` (Rust da rustup se quello della distribuzione è troppo vecchio). Lagotto ha bisogno di `fls`/`icat` (The Sleuth Kit), `photorec` (TestDisk), `lsblk` e `pkexec`; `exiftool` è facoltativo.
+Su Debian/Ubuntu i pacchetti sono `cargo libfontconfig1-dev libxkbcommon-dev sleuthkit testdisk libimage-exiftool-perl` (Rust da rustup se quello della distribuzione è troppo vecchio).
 
-Per provarlo in sicurezza senza un disco vero: `target/release/lagotto-gui disco.img` apre un'immagine del disco.
+Per provarlo in sicurezza senza un disco vero: `lagotto-gui disco.img` apre un'immagine del disco.
 
 ## La riga di comando
 

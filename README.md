@@ -11,10 +11,9 @@ Lagotto is a free, open-source data recovery app for Linux, named after the Ital
 > **Status: early development (tappa 0), not released yet.** It works end to end on disk images and has been tried only in automatic checks and on test images. Real disks through the password window have not been tried by the author yet.
 >
 > **Made with AI:** Lagotto is written with an AI assistant. See [How Lagotto is made](#how-lagotto-is-made).
->
-> Versions will be numbered by date: **year.month.release of that month**.
 
-**Contents:** [Before you start](#before-you-start) · [How it works](#how-it-works) · [What it can and cannot do](#what-it-can-and-cannot-do) · [Try it now](#try-it-now-from-the-source) · [Command line](#the-command-line) · [Error codes](#when-something-goes-wrong-error-codes) · [Test bench](#the-test-bench) · [How Lagotto is made](#how-lagotto-is-made) · [License](#license)
+
+**Contents:** [Before you start](#before-you-start) · [How it works](#how-it-works) · [What it can and cannot do](#what-it-can-and-cannot-do) · [Install](#install) · [Command line](#the-command-line) · [Error codes](#when-something-goes-wrong-error-codes) · [Test bench](#the-test-bench) · [How Lagotto is made](#how-lagotto-is-made) · [License](#license)
 
 ## Before you start
 
@@ -50,9 +49,19 @@ At the end you get how many files came back, how much space they take and how ma
 
 Reading a real disk needs administrator permission: Lagotto asks for your password once, through your desktop's usual window, and a small separate program (`lagotto-helper`) reads the disk **read-only**. The window itself always runs as you.
 
-## Try it now (from the source)
+## Install
 
-There is no package yet. On Fedora:
+**Fedora (and other RPM distributions):** download `lagotto-….rpm` from the [latest release](https://github.com/outlook791/Lagotto/releases/latest), then:
+
+```sh
+sudo dnf install ./lagotto-*.rpm
+```
+
+It also installs what Lagotto needs (The Sleuth Kit, TestDisk). Lagotto then appears in the app menu. To remove it: `sudo dnf remove lagotto`.
+
+Packages for other distributions will follow.
+
+**From the source**, on any distribution:
 
 ```sh
 sudo dnf install cargo rust gcc fontconfig-devel libxkbcommon-devel sleuthkit testdisk perl-Image-ExifTool
@@ -61,9 +70,9 @@ cargo build --release
 target/release/lagotto-gui
 ```
 
-On Debian/Ubuntu the packages are `cargo libfontconfig1-dev libxkbcommon-dev sleuthkit testdisk libimage-exiftool-perl` (Rust from rustup if the distribution's is too old). Lagotto needs `fls`/`icat` (The Sleuth Kit), `photorec` (TestDisk), `lsblk` and `pkexec`; `exiftool` is optional.
+On Debian/Ubuntu the packages are `cargo libfontconfig1-dev libxkbcommon-dev sleuthkit testdisk libimage-exiftool-perl` (Rust from rustup if the distribution's is too old).
 
-To try it safely without a real disk: `target/release/lagotto-gui disk.img` opens a disk image.
+To try it safely without a real disk: `lagotto-gui disk.img` opens a disk image.
 
 ## The command line
 

@@ -41,6 +41,11 @@ jobs:
           git config user.email outlook791@users.noreply.github.com
           scripts/release.sh "$NOTE"
           git push
+      - name: Main package (RPM, built in Fedora)
+        run: |
+          v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          [ "$v" = "0.0.0" ] && exit 0
+          docker run --rm -v "$PWD:/src" -w /src fedora:latest sh -c 'dnf -y -q install git rpm-build && git config --global --add safe.directory /src && ci/deps.sh fedora && scripts/build-rpm.sh'
       - name: Tag and release page
         env:
           GH_TOKEN: ${{ github.token }}
@@ -69,7 +74,7 @@ jobs:
           Guide: https://github.com/outlook791/Lagotto#readme · Guida: https://github.com/outlook791/Lagotto/blob/main/README.it.md
 
           Lagotto is written with an AI assistant. / Lagotto è scritto con un assistente AI."
-          gh release create "v$v" --target "$(git rev-parse HEAD)" --title "Lagotto $v" --notes "$body"
+          gh release create "v$v" --target "$(git rev-parse HEAD)" --title "Lagotto $v" --notes "$body" dist/*.rpm
       - name: Publish the new version (checks)
         if: github.event_name == 'workflow_dispatch'
         env:

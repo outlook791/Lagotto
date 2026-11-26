@@ -1,0 +1,19 @@
+[package]
+name = "lagotto-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Lagotto: l'interfaccia"
+
+[[bin]]
+name = "lagotto-gui"
+path = "src/main.rs"
+
+[dependencies]
+lagotto-core = { path = "../lagotto-core" }
+slint = "1.19"
+rfd = "0.18"
+
+[build-dependencies]
+slint-build = "1.19"

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.outlook791.Lagotto</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Lagotto</name>
+  <summary>Recover deleted files from USB sticks, cards and disks</summary>
+  <summary xml:lang="it">Recupera i file cancellati da chiavette, schede e dischi</summary>
+  <developer id="io.github.outlook791">
+    <name>outlook791</name>
+  </developer>
+  <description>
+    <p>Lagotto finds deleted files and brings them back, in three steps: say what you lost and where, let it sniff the disk, choose what to recover. It never writes on the disk you recover from, and it tells you honestly how likely recovery is.</p>
+    <p xml:lang="it">Lagotto trova i file cancellati e li riporta indietro, in tre passaggi: dici cosa hai perso e dove, lo lasci annusare il disco, scegli cosa recuperare. Non scrive mai sul disco da cui recuperi e ti dice con onestà quante probabilità ci sono.</p>
+    <p>Lagotto is written with an AI assistant.</p>
+    <p xml:lang="it">Lagotto è scritto con un assistente AI.</p>
+  </description>
+  <launchable type="desktop-id">io.github.outlook791.Lagotto.desktop</launchable>
+  <url type="homepage">https://github.com/outlook791/Lagotto</url>
+  <url type="bugtracker">https://github.com/outlook791/Lagotto/issues</url>
+  <content_rating type="oars-1.1"/>
+  <releases>
+  </releases>
+</component>

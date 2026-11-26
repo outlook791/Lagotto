@@ -1,0 +1,77 @@
+# Verifiche automatiche a ogni modifica: compila Lagotto, esegue i test e
+# il banco di prova (file cancellati recuperati, sorgente mai modificata).
+#
+# Finché il repository è privato, i minuti di GitHub Actions sono
+# limitati: a ogni modifica girano Fedora e Ubuntu; le altre tre
+# distribuzioni girano quando il repository è pubblico o a mano
+# (Actions → Checks → Run workflow).
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    name: Which distributions
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        env:
+          PRIVATE: ${{ github.event.repository.private }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          base='{"name":"Fedora","distro":"fedora","image":"fedora:latest"},{"name":"Ubuntu 24.04 LTS","distro":"ubuntu","image":"ubuntu:24.04"}'
+          extra='{"name":"Debian 13","distro":"debian","image":"debian:trixie"},{"name":"Arch Linux","distro":"arch","image":"archlinux:latest"},{"name":"openSUSE Tumbleweed","distro":"opensuse","image":"opensuse/tumbleweed:latest"}'
+          if [ "$PRIVATE" = "true" ] && [ "$EVENT" != "workflow_dispatch" ]; then all="$base"; else all="$base,$extra"; fi
+          echo "matrix={\"include\":[$all]}" >> "$GITHUB_OUTPUT"
+
+  distro:
+    name: ${{ matrix.name }}
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    container: ${{ matrix.image }}
+    steps:
+      - name: Git
+        run: |
+          case ${{ matrix.distro }} in
+            fedora) dnf -y -q install git ;;
+            ubuntu|debian) apt-get update -qq && apt-get install -y -qq git ca-certificates ;;
+            arch) pacman -Sy --noconfirm --needed git ;;
+            opensuse) zypper -n -q in git tar gzip ;;
+          esac
+      - uses: actions/checkout@v5
+      - name: Install what Lagotto needs
+        run: 'ci/run.sh "${{ matrix.name }} - install" ci/deps.sh ${{ matrix.distro }}'
+      - name: Build, test, test bench
+        run: 'ci/run.sh "${{ matrix.name }} - checks" ci/check.sh'
+
+  style:
+    name: Code style and metadata
+    runs-on: ubuntu-latest
+    container: "fedora:latest"
+    steps:
+      - run: dnf -y -q install git
+      - uses: actions/checkout@v5
+      - run: ci/deps.sh fedora
+      - run: dnf -y -q install rustfmt clippy
+      - name: Formatting
+        run: ci/run.sh Formatting cargo fmt --all --check
+      - name: Lints
+        run: ci/run.sh Lints cargo clippy --locked --all-targets -- -D warnings
+      - name: Menu entry
+        run: ci/run.sh "Menu entry" desktop-file-validate data/io.github.outlook791.Lagotto.desktop
+      - name: Store metadata
+        run: ci/run.sh "Store metadata" appstreamcli validate --no-net --explain data/io.github.outlook791.Lagotto.metainfo.xml

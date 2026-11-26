@@ -1,0 +1,15 @@
+[package]
+name = "lagotto-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Lagotto da riga di comando"
+
+[[bin]]
+name = "lagotto"
+path = "src/main.rs"
+
+[dependencies]
+lagotto-core = { path = "../lagotto-core" }
+serde_json.workspace = true

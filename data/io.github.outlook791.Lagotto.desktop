@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Lagotto
+GenericName=Data recovery
+GenericName[it]=Recupero dati
+Comment=Recover deleted files from USB sticks, cards and disks
+Comment[it]=Recupera i file cancellati da chiavette, schede e dischi
+Exec=lagotto-gui %f
+Icon=io.github.outlook791.Lagotto
+Terminal=false
+Categories=Utility;
+Keywords=recover;undelete;restore;photorec;recovery;
+Keywords[it]=recupero;recuperare;file cancellati;ripristino;
+StartupWMClass=lagotto-gui

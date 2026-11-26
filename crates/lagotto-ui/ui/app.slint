@@ -1,0 +1,624 @@
+// Lagotto: l'interfaccia. Una sola finestra, un pulsante ☰, nessuna barra dei menu.
+// I testi passano tutti da Tr.t("…") (testo sorgente inglese, tradotto da Rust).
+
+import { Palette, ScrollView, CheckBox } from "std-widgets.slint";
+
+export global Tr {
+    pure callback t(string) -> string;
+    in property <bool> rtl: false;
+}
+
+global Theme {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    out property <color> bg: dark ? #1f1b17 : #F7F5F1;
+    out property <color> bar: dark ? #2a241f : #EFEBE4;
+    out property <color> card: dark ? #2b2621 : #FFFFFF;
+    out property <color> line: dark ? #463d35 : #DDD8CF;
+    out property <color> line2: dark ? #5a5047 : #CFC8BC;
+    out property <color> ink: dark ? #F1ECE6 : #1F2328;
+    out property <color> ink2: dark ? #BDB4AA : #5A6168;
+    out property <color> ink3: dark ? #D9D1C8 : #3D434A;
+    out property <color> truffle: dark ? #C99A6B : #6B4A2B;
+    out property <color> truffle-bg: dark ? #3a2f25 : #F3ECE3;
+    out property <color> on-truffle: dark ? #1f1b17 : #FFFFFF;
+    out property <color> nose: dark ? #E6D7C6 : #2B1D12;
+    out property <color> good: #2E7D4F;
+    out property <color> good-bg: dark ? #1e3a2a : #E6F2EA;
+    out property <color> good-ink: dark ? #9ED9B5 : #1F5C38;
+    out property <color> warn: #C98A1A;
+    out property <color> warn-ink: dark ? #E8B65A : #8A5A0F;
+    out property <color> bad: #B8441F;
+    out property <color> bad-bg: dark ? #3d2219 : #FBEAE5;
+    out property <color> bad-ink: dark ? #F0A68C : #8A2E14;
+    out property <color> empty: dark ? #4a423a : #D9D4CB;
+    out property <color> hint-bg: dark ? #3a3020 : #FFF6E5;
+    out property <color> hint-line: dark ? #6b5630 : #EBD3A8;
+    out property <color> hint-ink: dark ? #F0D9A8 : #5C4313;
+}
+
+export struct DiskCard { title: string, subtitle: string, kind: int, prob: int, reason: string, system: bool }
+export struct DiaryLine { time: string, text: string, strong: bool }
+export struct Curl { state: int }   // 0 da leggere, 1 vuoto, 2 integro, 3 danneggiato, 4 qui adesso
+export struct MomentCard { title: string, subtitle: string }
+export struct Tile { id: int, name: string, kind: int, state: int, selected: bool }
+export struct KindChip { label: string, kind: int }
+
+component Button inherits Rectangle {
+    in property <string> text;
+    in property <bool> primary: false;
+    in property <bool> enabled: true;
+    callback clicked;
+    height: 48px;
+    min-width: label.preferred-width + 48px;
+    border-radius: 12px;
+    background: !enabled ? Theme.line : primary ? (ta.has-hover ? Theme.truffle.darker(0.15) : Theme.truffle) : (ta.has-hover ? Theme.bar : Theme.card);
+    border-width: primary ? 0 : 1px;
+    border-color: Theme.line2;
+    accessible-role: button;
+    accessible-label: text;
+    accessible-action-default => { if enabled { clicked(); } }
+    forward-focus: fs;
+    fs := FocusScope {
+        key-pressed(e) => {
+            if enabled && (e.text == " " || e.text == "\n") { root.clicked(); return accept; }
+            reject
+        }
+    }
+    label := Text {
+        text: root.text;
+        color: primary ? Theme.on-truffle : Theme.ink;
+        font-size: 15px;
+        font-weight: primary ? 600 : 400;
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { if enabled { root.clicked(); } }
+    }
+    Rectangle {
+        border-radius: 14px;
+        border-width: fs.has-focus ? 2px : 0;
+        border-color: Theme.truffle;
+        x: -3px; y: -3px; width: parent.width + 6px; height: parent.height + 6px;
+    }
+}
+
+component Token inherits Rectangle {
+    in property <string> text;
+    callback clicked;
+    height: 40px;
+    width: t.preferred-width + 8px;
+    accessible-role: button;
+    accessible-label: text;
+    accessible-action-default => { clicked(); }
+    t := Text { text: root.text; font-size: 22px; font-weight: 600; color: Theme.truffle; }
+    Rectangle { y: parent.height - 4px; height: 2px; background: Theme.truffle; opacity: 0.7; }
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+component Nose inherits Path {
+    in property <bool> breathing: false;
+    width: 34px; height: 28px;
+    viewbox-width: 68; viewbox-height: 56;
+    fill: Theme.nose;
+    commands: "M4 14 q30 -26 60 0 q-6 34 -30 40 q-24 -6 -30 -40z";
+    accessible-role: image;
+    accessible-label: Tr.t("Lagotto is sniffing");
+}
+
+component TitleBar inherits Rectangle {
+    in property <string> subtitle;
+    callback menu;
+    callback close;
+    height: 48px;
+    background: Theme.bar;
+    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
+    HorizontalLayout {
+        padding-left: 20px; padding-right: 12px; spacing: 10px;
+        alignment: space-between;
+        HorizontalLayout {
+            spacing: 10px;
+            alignment: start;
+            Image { source: @image-url("lagotto.svg"); width: 26px; height: 26px; y: 11px; accessible-role: none; }
+            Text { text: "Lagotto"; font-weight: 600; font-size: 15px; color: Theme.ink; vertical-alignment: center; }
+            Text { text: root.subtitle; font-size: 15px; color: Theme.ink2; vertical-alignment: center; }
+        }
+        HorizontalLayout {
+            spacing: 4px;
+            Rectangle {
+                width: 44px; height: 36px; y: 6px; border-radius: 8px;
+                background: m.has-hover ? Theme.line : transparent;
+                accessible-role: button; accessible-label: Tr.t("Menu");
+                accessible-action-default => { root.menu(); }
+                Text { text: "☰"; font-size: 18px; color: Theme.ink3; }
+                m := TouchArea { clicked => { root.menu(); } }
+            }
+            Rectangle {
+                width: 44px; height: 36px; y: 6px; border-radius: 8px;
+                background: c.has-hover ? Theme.line : transparent;
+                accessible-role: button; accessible-label: Tr.t("Close");
+                accessible-action-default => { root.close(); }
+                Text { text: "✕"; font-size: 16px; color: Theme.ink3; }
+                c := TouchArea { clicked => { root.close(); } }
+            }
+        }
+    }
+}
+
+component Badge inherits Rectangle {
+    in property <int> prob;
+    height: 26px;
+    width: hl.preferred-width;
+    border-radius: 13px;
+    background: prob == 2 ? Theme.good-bg : prob == 1 ? Theme.hint-bg : Theme.bad-bg;
+    hl := HorizontalLayout {
+        padding-left: 10px; padding-right: 10px; spacing: 6px;
+        Rectangle { width: 8px; height: 8px; y: 9px; border-radius: 4px; background: prob == 2 ? Theme.good : prob == 1 ? Theme.warn : Theme.bad; }
+        Text {
+            text: prob == 2 ? Tr.t("High chances") : prob == 1 ? Tr.t("Medium chances") : Tr.t("Low chances");
+            font-size: 13px; font-weight: 600; vertical-alignment: center;
+            color: prob == 2 ? Theme.good-ink : prob == 1 ? Theme.warn-ink : Theme.bad-ink;
+        }
+    }
+}
+
+component DiskView inherits Rectangle {
+    in property <DiskCard> disk;
+    in property <bool> selected;
+    callback clicked;
+    min-height: 200px;
+    border-radius: 14px;
+    background: Theme.card;
+    border-width: selected ? 2px : 1px;
+    border-color: selected ? Theme.truffle : Theme.line;
+    accessible-role: button;
+    accessible-label: disk.title + ", " + disk.subtitle;
+    accessible-action-default => { clicked(); }
+    VerticalLayout {
+        padding: 18px; spacing: 8px; alignment: start;
+        Path {
+            width: 40px; height: 40px; viewbox-width: 40; viewbox-height: 40;
+            stroke: Theme.ink3; stroke-width: 2px; fill: transparent;
+            accessible-role: none;
+            commands: disk.kind == 0 ? "M12 4 h16 v10 h-16 z M9 14 h22 v22 h-22 z"
+                : disk.kind == 1 ? "M10 4 h14 l6 6 v26 h-20 z M15 9 v5 M19 9 v5 M23 9 v5"
+                : disk.kind == 2 ? "M6 8 h28 v24 h-28 z M20 20 m-7 0 a7 7 0 1 0 14 0 a7 7 0 1 0 -14 0 M28 28 h1"
+                : disk.kind == 4 ? "M20 20 m-14 0 a14 14 0 1 0 28 0 a14 14 0 1 0 -28 0 M20 20 m-3 0 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0"
+                : "M5 10 h30 v20 h-30 z M10 25 h8";
+        }
+        Text { text: disk.title; font-size: 16px; font-weight: 600; color: Theme.ink; wrap: word-wrap; }
+        Text { text: disk.subtitle; font-size: 13px; color: Theme.ink2; wrap: word-wrap; }
+        HorizontalLayout { alignment: start; Badge { prob: disk.prob; } }
+        Text { text: disk.reason; font-size: 13px; color: Theme.ink2; wrap: word-wrap; }
+    }
+    TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+component Notice inherits Rectangle {
+    in-out property <bool> checked: false;
+    callback accept;
+    callback refuse;
+    VerticalLayout {
+        padding-left: 48px; padding-right: 48px; padding-top: 28px; padding-bottom: 24px;
+        Rectangle {
+            background: Theme.card; border-radius: 16px; border-width: 1px; border-color: Theme.line;
+            VerticalLayout {
+                padding: 28px; spacing: 14px; alignment: start;
+                Text { text: Tr.t("Before you start"); font-size: 24px; font-weight: 700; color: Theme.ink; }
+                Text { text: Tr.t("Lagotto is free and open source, and it is provided as is, without any warranty."); wrap: word-wrap; font-size: 15px; color: Theme.ink3; }
+                for p in [
+                    Tr.t("Recovery is not guaranteed: some files may be impossible to recover."),
+                    Tr.t("The authors are not liable for data loss, damage to disks or any other damage resulting from the use of Lagotto."),
+                    Tr.t("By using it you take on every risk and every responsibility."),
+                    Tr.t("For irreplaceable data, go to a professional recovery lab first."),
+                ] : HorizontalLayout {
+                    spacing: 10px;
+                    Text { text: "•"; color: Theme.ink3; font-size: 14px; }
+                    Text { text: p; wrap: word-wrap; font-size: 14px; color: Theme.ink3; horizontal-stretch: 1; }
+                }
+                cb := CheckBox {
+                    text: Tr.t("I have read and accept: I use Lagotto at my own risk.");
+                    checked <=> root.checked;
+                }
+                Rectangle { vertical-stretch: 1; }
+                HorizontalLayout {
+                    alignment: end; spacing: 12px;
+                    Button { text: Tr.t("I don't accept"); clicked => { root.refuse(); } }
+                    Button { text: Tr.t("Accept and continue"); primary: true; enabled: root.checked; clicked => { root.accept(); } }
+                }
+            }
+        }
+    }
+}
+
+component Refused inherits Rectangle {
+    callback back;
+    callback quit;
+    VerticalLayout {
+        alignment: center; padding: 48px; spacing: 16px;
+        Text { text: Tr.t("Lagotto cannot continue"); font-size: 24px; font-weight: 700; color: Theme.ink; horizontal-alignment: center; }
+        Text {
+            text: Tr.t("Without your acceptance Lagotto cannot be used. It stays free and open source: you can read its code and license whenever you like.");
+            wrap: word-wrap; font-size: 15px; color: Theme.ink3; horizontal-alignment: center;
+        }
+        HorizontalLayout {
+            alignment: center; spacing: 12px;
+            Button { text: Tr.t("Back"); clicked => { root.back(); } }
+            Button { text: Tr.t("Close Lagotto"); primary: true; clicked => { root.quit(); } }
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "Lagotto";
+    icon: @image-url("lagotto.svg");
+    min-width: 760px; min-height: 600px;
+    preferred-width: 960px; preferred-height: 660px;
+    background: Theme.bg;
+    default-font-family: "Inter";
+
+    // 0 avviso, 1 rifiuto, 2 scelta, 3 scansione, 4 risultati, 5 recupero in corso, 6 fine
+    in-out property <int> screen: 0;
+    in-out property <bool> notice-checked: false;
+
+    // Scelta
+    in property <[DiskCard]> disks;
+    in-out property <int> selected-disk: -1;
+    in property <string> what-label;
+    in property <string> when-label;
+    in property <string> where-label;
+    in property <string> first-hint;
+    in property <bool> show-first-hint: true;
+    in property <string> status-text;
+
+    // Scansione
+    in property <string> scan-subtitle;
+    in property <string> scan-progress;
+    in property <[Curl]> curls;
+    in property <[DiaryLine]> diary;
+    in property <int> found-count;
+    in property <int> damaged-count;
+    in property <bool> scanning: false;
+
+    // Risultati
+    in property <[KindChip]> chips;
+    in-out property <int> chip: -1;
+    in property <[MomentCard]> moments;
+    in-out property <int> moment: -1;
+    in property <string> group-title;
+    in property <[Tile]> tiles;
+    in property <string> selection-text;
+    in property <string> destination-text;
+    in property <bool> can-recover: false;
+    in property <string> results-hint;
+
+    // Fine
+    in property <string> done-count;
+    in property <string> done-size;
+    in property <string> done-damaged;
+    in property <string> done-folder;
+    in property <float> recover-progress;
+
+    in-out property <bool> menu-open: false;
+    in-out property <bool> nose-up: false;
+
+    callback accept-notice;
+    callback quit();
+    callback pick-disk(int);
+    callback cycle-what();
+    callback cycle-when();
+    callback start-scan();
+    callback open-image();
+    callback pause-scan();
+    callback show-results();
+    callback pick-chip(int);
+    callback pick-moment(int);
+    callback toggle-tile(int);
+    callback select-group();
+    callback choose-destination();
+    callback recover();
+    callback open-folder();
+    callback new-search();
+    callback open-guide();
+    callback open-about();
+    callback refresh-disks();
+
+    timer := Timer { interval: 900ms; running: root.scanning; triggered => { root.nose-up = !root.nose-up; } }
+
+    VerticalLayout {
+        TitleBar {
+            subtitle: root.screen == 3 || root.screen == 4 ? root.scan-subtitle : "";
+            menu => { root.menu-open = !root.menu-open; }
+            close => { root.quit(); }
+        }
+
+        if root.screen == 0: Notice {
+            vertical-stretch: 1;
+            checked <=> root.notice-checked;
+            accept => { root.accept-notice(); }
+            refuse => { root.screen = 1; }
+        }
+        if root.screen == 1: Refused {
+            vertical-stretch: 1;
+            back => { root.screen = 0; }
+            quit => { root.quit(); }
+        }
+
+        // 2 — Cosa hai perso, e dove?
+        if root.screen == 2: VerticalLayout {
+            vertical-stretch: 1;
+            padding-left: 48px; padding-right: 48px; padding-top: 24px; padding-bottom: 24px; spacing: 16px;
+            if root.show-first-hint: Rectangle {
+                height: 40px; border-radius: 10px; background: Theme.hint-bg; border-width: 1px; border-color: Theme.hint-line;
+                HorizontalLayout {
+                    padding-left: 14px; padding-right: 14px; spacing: 10px;
+                    Text { text: "ⓘ"; color: Theme.hint-ink; font-size: 16px; vertical-alignment: center; }
+                    Text { text: root.first-hint; color: Theme.hint-ink; font-size: 14px; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                }
+            }
+            Text { text: Tr.t("What did you lose, and where?"); font-size: 28px; font-weight: 700; color: Theme.ink; }
+            if root.disks.length == 0: Text { text: Tr.t("No disks found. Connect the disk, then press Refresh."); color: Theme.ink2; font-size: 15px; wrap: word-wrap; }
+            if root.disks.length > 0: ScrollView {
+                height: 232px;
+                content-width: root.disks.length * 216px;
+                content-height: 220px;
+                for d[i] in root.disks: DiskView {
+                    x: i * 216px; y: 0;
+                    width: 200px; height: 220px;
+                    disk: d;
+                    selected: i == root.selected-disk;
+                    clicked => { root.pick-disk(i); }
+                }
+            }
+            Rectangle {
+                background: Theme.card; border-radius: 14px; border-width: 1px; border-color: Theme.line;
+                min-height: 84px;
+                VerticalLayout {
+                    padding-left: 18px; padding-right: 18px; padding-top: 12px; padding-bottom: 12px; spacing: 4px;
+                    Text { text: Tr.t("Tell me in your own words: tap the underlined parts to change them."); font-size: 13px; color: Theme.ink2; }
+                    HorizontalLayout {
+                        spacing: 8px; alignment: start;
+                        Text { text: Tr.t("I'm looking for"); font-size: 22px; color: Theme.ink; vertical-alignment: center; }
+                        Token { text: root.what-label; clicked => { root.cycle-what(); } }
+                        Token { text: root.when-label; clicked => { root.cycle-when(); } }
+                        Text { text: Tr.t("on"); font-size: 22px; color: Theme.ink; vertical-alignment: center; }
+                        Text { text: root.where-label; font-size: 22px; font-weight: 600; color: Theme.ink; vertical-alignment: center; overflow: elide; }
+                    }
+                }
+            }
+            Rectangle { vertical-stretch: 1; }
+            HorizontalLayout {
+                alignment: space-between;
+                HorizontalLayout {
+                    spacing: 16px;
+                    Button { text: Tr.t("Refresh"); clicked => { root.refresh-disks(); } }
+                    Button { text: Tr.t("Open a disk image…"); clicked => { root.open-image(); } }
+                }
+                Text { text: root.status-text; color: Theme.bad-ink; font-size: 13px; vertical-alignment: center; wrap: word-wrap; horizontal-stretch: 1; horizontal-alignment: center; }
+                Button { text: Tr.t("Search"); primary: true; enabled: root.selected-disk >= 0; clicked => { root.start-scan(); } }
+            }
+        }
+
+        // 3 — Il Lagotto sta annusando…
+        if root.screen == 3: VerticalLayout {
+            vertical-stretch: 1;
+            padding-left: 48px; padding-right: 48px; padding-top: 22px; padding-bottom: 22px; spacing: 16px;
+            HorizontalLayout {
+                spacing: 12px;
+                Nose { opacity: root.nose-up ? 1 : 0.55; animate opacity { duration: 800ms; easing: ease-in-out; } }
+                Text { text: root.scanning ? Tr.t("Lagotto is sniffing…") : Tr.t("Lagotto has finished sniffing"); font-size: 28px; font-weight: 700; color: Theme.ink; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; }
+                Text { text: root.scan-progress; font-size: 14px; color: Theme.ink2; vertical-alignment: center; }
+            }
+            Rectangle {
+                background: Theme.card; border-radius: 14px; border-width: 1px; border-color: Theme.line;
+                VerticalLayout {
+                    padding-left: 18px; padding-right: 18px; padding-top: 16px; padding-bottom: 16px; spacing: 12px; alignment: start;
+                    Text { text: Tr.t("The disk like Lagotto's coat: each curl is a part of the disk."); font-size: 13px; color: Theme.ink2; }
+                    curlbox := Rectangle {
+                        height: 5 * 18px; vertical-stretch: 0;
+                        for c[i] in root.curls: Rectangle {
+                            property <int> crow: Math.floor(i / 40);
+                            property <int> ccol: Math.mod(i, 40);
+                            x: self.ccol * 20px + Math.mod(self.crow, 2) * 10px;
+                            y: self.crow * 18px;
+                            width: 16px; height: 16px; border-radius: 8px;
+                            background: c.state == 2 ? Theme.good : c.state == 3 ? Theme.warn : c.state == 1 ? Theme.empty : c.state == 4 ? Theme.empty : Theme.card;
+                            border-width: c.state == 0 ? 1.5px : c.state == 4 ? 2.5px : 0;
+                            border-color: c.state == 4 ? Theme.nose : Theme.line2;
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 20px; alignment: start;
+                        for l[i] in [Tr.t("Intact files"), Tr.t("Damaged files"), Tr.t("Empty"), Tr.t("Still to read")]: HorizontalLayout {
+                            spacing: 6px;
+                            Rectangle {
+                                width: 12px; height: 12px; y: 3px; border-radius: 6px;
+                                background: i == 0 ? Theme.good : i == 1 ? Theme.warn : i == 2 ? Theme.empty : Theme.card;
+                                border-width: i == 3 ? 1.5px : 0; border-color: Theme.line2;
+                            }
+                            Text { text: l; font-size: 13px; color: Theme.ink3; }
+                        }
+                    }
+                }
+            }
+            HorizontalLayout {
+                spacing: 16px; vertical-stretch: 1;
+                Rectangle {
+                    horizontal-stretch: 1;
+                    background: Theme.card; border-radius: 14px; border-width: 1px; border-color: Theme.line;
+                    VerticalLayout {
+                        padding-left: 18px; padding-right: 18px; padding-top: 14px; padding-bottom: 14px; spacing: 8px; alignment: start;
+                        Text { text: Tr.t("SNIFFING DIARY"); font-size: 13px; font-weight: 600; color: Theme.truffle; letter-spacing: 0.5px; }
+                        for line in root.diary: HorizontalLayout {
+                            spacing: 10px;
+                            Text { text: line.time; width: 48px; font-size: 14px; color: Theme.ink2; }
+                            Text { text: line.text; font-size: 14px; color: line.strong ? Theme.ink : Theme.ink2; font-weight: line.strong ? 600 : 400; wrap: word-wrap; horizontal-stretch: 1; }
+                        }
+                    }
+                }
+                VerticalLayout {
+                    width: 180px; spacing: 12px; alignment: start;
+                    Rectangle {
+                        background: Theme.card; border-radius: 14px; border-width: 1px; border-color: Theme.line; height: 72px;
+                        VerticalLayout { padding: 12px; padding-left: 16px;
+                            Text { text: root.found-count; font-size: 24px; font-weight: 700; color: Theme.ink; }
+                            Text { text: Tr.t("files found"); font-size: 13px; color: Theme.ink2; } }
+                    }
+                }
+            }
+            HorizontalLayout {
+                alignment: space-between;
+                Button { text: Tr.t("Stop"); enabled: root.scanning; clicked => { root.pause-scan(); } }
+                Button { text: Tr.t("See and recover what was found"); primary: true; enabled: root.found-count > 0; clicked => { root.show-results(); } }
+            }
+        }
+
+        // 4 — Risultati: momenti ritrovati
+        if root.screen == 4: VerticalLayout {
+            vertical-stretch: 1;
+            padding-left: 48px; padding-right: 48px; padding-top: 20px; padding-bottom: 20px; spacing: 14px;
+            HorizontalLayout {
+                spacing: 8px; alignment: start;
+                for c[i] in root.chips: Rectangle {
+                    height: 40px; width: ct.preferred-width + 32px; border-radius: 20px;
+                    background: i == root.chip ? Theme.truffle-bg : Theme.card;
+                    border-width: i == root.chip ? 2px : 1px; border-color: i == root.chip ? Theme.truffle : Theme.line2;
+                    accessible-role: button; accessible-label: c.label;
+                    accessible-action-default => { root.pick-chip(i); }
+                    ct := Text { text: c.label; font-size: 14px; font-weight: i == root.chip ? 600 : 400; color: Theme.ink; }
+                    TouchArea { mouse-cursor: pointer; clicked => { root.pick-chip(i); } }
+                }
+            }
+            if root.moments.length > 0: VerticalLayout {
+                spacing: 8px;
+                Text { text: Tr.t("YOUR FOUND MOMENTS"); font-size: 13px; font-weight: 600; color: Theme.truffle; }
+                HorizontalLayout {
+                    spacing: 12px;
+                    for m[i] in root.moments: Rectangle {
+                        horizontal-stretch: 1; height: 62px; border-radius: 14px; background: Theme.card;
+                        border-width: i == root.moment ? 2px : 1px; border-color: i == root.moment ? Theme.truffle : Theme.line;
+                        accessible-role: button; accessible-label: m.title;
+                        accessible-action-default => { root.pick-moment(i); }
+                        VerticalLayout { padding-left: 14px; padding-top: 10px; spacing: 2px;
+                            Text { text: m.title; font-size: 15px; font-weight: 600; color: Theme.ink; overflow: elide; }
+                            Text { text: m.subtitle; font-size: 13px; color: Theme.ink2; overflow: elide; } }
+                        TouchArea { mouse-cursor: pointer; clicked => { root.pick-moment(i); } }
+                    }
+                }
+            }
+            HorizontalLayout {
+                alignment: space-between;
+                Text { text: root.group-title; font-size: 16px; font-weight: 600; color: Theme.ink; }
+                Text {
+                    text: Tr.t("Select all"); font-size: 14px; color: Theme.truffle;
+                    TouchArea { mouse-cursor: pointer; clicked => { root.select-group(); } }
+                }
+            }
+            ScrollView {
+                vertical-stretch: 1;
+                content-height: Math.ceil(root.tiles.length / 6) * 126px;
+                for t[i] in root.tiles: Rectangle {
+                    property <length> w: (parent.width - 5 * 10px) / 6;
+                    x: Math.mod(i, 6) * (w + 10px);
+                    y: Math.floor(i / 6) * 126px;
+                    width: w; height: 116px; border-radius: 10px;
+                    background: t.kind == 0 ? #C7B8A3 : t.kind == 1 ? #9FB3A8 : t.kind == 2 ? #A9BBCB : t.kind == 3 ? #B9A7C2 : #D2C3A9;
+                    border-width: t.selected ? 3px : 0; border-color: Theme.truffle;
+                    accessible-role: checkbox; accessible-checked: t.selected; accessible-label: t.name;
+                    accessible-action-default => { root.toggle-tile(t.id); }
+                    Text { x: 8px; y: 8px; text: t.kind == 0 ? "◐" : t.kind == 1 ? "▶" : t.kind == 2 ? "≡" : t.kind == 3 ? "♪" : "▣"; font-size: 22px; color: #3D3329; }
+                    Rectangle { x: parent.width - 20px; y: 8px; width: 12px; height: 12px; border-radius: 6px; border-width: 2px; border-color: white;
+                        background: t.state == 0 ? Theme.good : t.state == 1 ? Theme.warn : t.state == 2 ? Theme.bad : #9AA0A6; }
+                    Rectangle { y: parent.height - 34px; height: 34px; background: #00000055; border-radius: 0;
+                        Text { x: 8px; width: parent.width - 16px; text: t.name; color: white; font-size: 12px; overflow: elide; vertical-alignment: center; } }
+                    if t.selected: Rectangle { x: 8px; y: 40px; width: 20px; height: 20px; border-radius: 6px; background: Theme.truffle;
+                        Text { text: "✓"; color: white; font-size: 12px; } }
+                    TouchArea { mouse-cursor: pointer; clicked => { root.toggle-tile(t.id); } }
+                }
+            }
+            Text { text: root.results-hint; font-size: 13px; color: Theme.ink2; wrap: word-wrap; }
+            Rectangle {
+                background: Theme.card; border-radius: 14px; border-width: 1px; border-color: Theme.line; height: 72px;
+                HorizontalLayout {
+                    padding-left: 18px; padding-right: 12px; spacing: 16px;
+                    VerticalLayout {
+                        alignment: center; spacing: 2px; horizontal-stretch: 1;
+                        Text { text: root.selection-text; font-size: 15px; font-weight: 600; color: Theme.ink; }
+                        HorizontalLayout { spacing: 6px; alignment: start;
+                            Text { text: root.destination-text; font-size: 13px; color: Theme.ink2; overflow: elide; }
+                            Text { text: Tr.t("change"); font-size: 13px; color: Theme.truffle;
+                                TouchArea { mouse-cursor: pointer; clicked => { root.choose-destination(); } } } }
+                        Text { text: root.status-text; font-size: 13px; color: Theme.bad-ink; overflow: elide; }
+                    }
+                    Button { y: 12px; text: Tr.t("Recover"); primary: true; enabled: root.can-recover; clicked => { root.recover(); } }
+                }
+            }
+        }
+
+        // 5 — Recupero in corso
+        if root.screen == 5: VerticalLayout {
+            vertical-stretch: 1; alignment: center; spacing: 18px; padding: 48px;
+            HorizontalLayout { alignment: center; Nose { width: 46px; height: 38px; } }
+            Text { text: Tr.t("Bringing your files back…"); font-size: 26px; font-weight: 700; color: Theme.ink; horizontal-alignment: center; }
+            Rectangle { height: 10px; border-radius: 5px; background: Theme.line;
+                Rectangle { x: 0; width: parent.width * root.recover-progress; border-radius: 5px; background: Theme.truffle; } }
+        }
+
+        // 6 — Fine
+        if root.screen == 6: VerticalLayout {
+            vertical-stretch: 1; alignment: center; spacing: 22px; padding: 48px;
+            HorizontalLayout { alignment: center;
+                Rectangle { width: 72px; height: 72px; border-radius: 36px; background: Theme.good-bg;
+                    Text { text: "✓"; font-size: 34px; color: Theme.good; } } }
+            Text { text: Tr.t("Done: I brought your files back."); font-size: 30px; font-weight: 700; color: Theme.ink; horizontal-alignment: center; }
+            HorizontalLayout {
+                alignment: center; spacing: 16px;
+                for s[i] in [
+                    { n: root.done-count, l: Tr.t("files recovered") },
+                    { n: root.done-size, l: Tr.t("saved") },
+                    { n: root.done-damaged, l: Tr.t("damaged, in a separate folder") },
+                ]: Rectangle {
+                    width: 200px; height: 78px; background: Theme.card; border-radius: 14px; border-width: 1px; border-color: Theme.line;
+                    VerticalLayout { padding: 14px;
+                        Text { text: s.n; font-size: 26px; font-weight: 700; color: i == 2 ? Theme.warn-ink : Theme.ink; }
+                        Text { text: s.l; font-size: 13px; color: Theme.ink2; wrap: word-wrap; } }
+                }
+            }
+            Text { text: root.done-folder; font-size: 14px; color: Theme.ink3; horizontal-alignment: center; wrap: word-wrap; }
+            HorizontalLayout { alignment: center; spacing: 12px;
+                Button { text: Tr.t("Open the folder"); primary: true; clicked => { root.open-folder(); } }
+                Button { text: Tr.t("New search"); clicked => { root.new-search(); } } }
+            Text { text: Tr.t("Tip: make a regular backup of important files. It is the only sure way not to lose them."); font-size: 13px; color: Theme.ink2; horizontal-alignment: center; wrap: word-wrap; }
+        }
+    }
+
+    // Il menu ☰: sopra tutto, chiuso con un clic fuori.
+    if root.menu-open: TouchArea {
+        clicked => { root.menu-open = false; }
+    }
+    if root.menu-open: Rectangle {
+        x: root.width - 260px; y: 46px; width: 240px; height: menu-layout.preferred-height;
+        background: Theme.card; border-radius: 12px; border-width: 1px; border-color: Theme.line;
+        drop-shadow-blur: 16px; drop-shadow-color: #0003;
+        menu-layout := VerticalLayout {
+            padding: 6px;
+            for item[i] in [Tr.t("New search"), Tr.t("Open a disk image…"), Tr.t("Guide"), Tr.t("About Lagotto"), Tr.t("Quit")]: Rectangle {
+                height: 44px; border-radius: 8px;
+                background: mt.has-hover ? Theme.bar : transparent;
+                accessible-role: button; accessible-label: item;
+                accessible-action-default => { mt.clicked(); }
+                Text { x: 12px; text: item; font-size: 14px; color: Theme.ink; vertical-alignment: center; }
+                mt := TouchArea {
+                    clicked => {
+                        root.menu-open = false;
+                        if i == 0 { root.new-search(); }
+                        if i == 1 { root.open-image(); }
+                        if i == 2 { root.open-guide(); }
+                        if i == 3 { root.open-about(); }
+                        if i == 4 { root.quit(); }
+                    }
+                }
+            }
+        }
+    }
+}

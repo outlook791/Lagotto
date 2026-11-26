@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>Lagotto</vendor>
+  <vendor_url>https://github.com/outlook791/Lagotto</vendor_url>
+  <action id="io.github.outlook791.Lagotto.read-disks">
+    <description>Read disks to recover files</description>
+    <description xml:lang="it">Leggere i dischi per recuperare i file</description>
+    <message>Lagotto needs your password to read the disk. It only reads: nothing is written on it.</message>
+    <message xml:lang="it">Lagotto ha bisogno della tua password per leggere il disco. Legge soltanto: non ci scrive niente.</message>
+    <icon_name>io.github.outlook791.Lagotto</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/lagotto-helper</annotate>
+  </action>
+</policyconfig>

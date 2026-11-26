@@ -1,0 +1,133 @@
+# Italiano. Testo inglese<TAB>traduzione. "Lagotto" non si traduce.
+…	…
+Lagotto is sniffing	Il Lagotto sta annusando
+Menu	Menu
+Close	Chiudi
+High chances	Probabilità alte
+Medium chances	Probabilità medie
+Low chances	Probabilità basse
+Before you start	Prima di iniziare
+Lagotto is free and open source, and it is provided as is, without any warranty.	Lagotto è gratuito e open source, ed è fornito così com'è, senza alcuna garanzia.
+Recovery is not guaranteed: some files may be impossible to recover.	Il recupero non è garantito: alcuni file possono essere irrecuperabili.
+The authors are not liable for data loss, damage to disks or any other damage resulting from the use of Lagotto.	Gli autori non rispondono di perdite di dati, danni ai dischi o qualsiasi altro danno dovuto all'uso di Lagotto.
+By using it you take on every risk and every responsibility.	Usandolo ti assumi ogni rischio e ogni responsabilità.
+For irreplaceable data, go to a professional recovery lab first.	Per dati di valore insostituibile, rivolgiti prima a un laboratorio professionale.
+I have read and accept: I use Lagotto at my own risk.	Ho letto e accetto: uso Lagotto a mio rischio.
+I don't accept	Non accetto
+Accept and continue	Accetto e continuo
+Lagotto cannot continue	Lagotto non può continuare
+Without your acceptance Lagotto cannot be used. It stays free and open source: you can read its code and license whenever you like.	Senza la tua accettazione non è possibile usare Lagotto. Resta gratuito e open source: puoi leggerne il codice e la licenza quando vuoi.
+Back	Indietro
+Close Lagotto	Chiudi Lagotto
+What did you lose, and where?	Cosa hai perso, e dove?
+No disks found. Connect the disk, then press Refresh.	Nessun disco trovato. Collega il disco, poi premi Aggiorna.
+Tell me in your own words: tap the underlined parts to change them.	Dimmelo con parole tue: tocca le parti sottolineate per cambiarle.
+I'm looking for	Cerco
+on	su
+Refresh	Aggiorna
+Open a disk image…	Apri un'immagine del disco…
+Search	Cerca
+Lagotto is sniffing…	Il Lagotto sta annusando…
+Lagotto has finished sniffing	Il Lagotto ha finito di annusare
+The disk like Lagotto's coat: each curl is a part of the disk.	Il disco come il pelo del Lagotto: ogni ricciolo è una parte del disco.
+Intact files	File integri
+Damaged files	File danneggiati
+Empty	Vuoto
+Still to read	Ancora da leggere
+SNIFFING DIARY	IL DIARIO DEL FIUTO
+files found	file trovati
+Stop	Ferma
+See and recover what was found	Guarda e recupera i trovati
+YOUR FOUND MOMENTS	I TUOI MOMENTI RITROVATI
+Select all	Seleziona tutto
+change	cambia
+Recover	Recupera
+Bringing your files back…	Sto riportando i tuoi file…
+Done: I brought your files back.	Fatto: ho riportato i tuoi file.
+files recovered	file recuperati
+saved	salvati
+damaged, in a separate folder	danneggiati, in una cartella a parte
+Open the folder	Apri la cartella
+New search	Nuova ricerca
+Tip: make a regular backup of important files. It is the only sure way not to lose them.	Consiglio: fai una copia di sicurezza regolare dei file importanti. È l'unico modo sicuro per non perderli.
+Guide	Guida
+About Lagotto	Informazioni su Lagotto
+Quit	Esci
+in use by the system	in uso dal sistema
+This disk holds the running system: anything you do may overwrite files. Better to use the Lagotto live USB.	Su questo disco gira il sistema: qualsiasi cosa fai può sovrascrivere i file. Meglio usare la chiavetta live di Lagotto.
+All the files	Tutti i file
+A "?" at the start of a name: on this kind of disk the first letter of deleted names is lost.	Un "?" all'inizio del nome: su questo tipo di disco la prima lettera dei nomi cancellati va persa.
+Tap the files to choose them	Tocca i file per sceglierli
+Save to: choose a folder on another disk	Salva su: scegli una cartella su un altro disco
+Starting…	Inizio…
+Asking for your password to read the disk (read only).	Ti chiedo la password per leggere il disco (solo in lettura).
+Finished	Finito
+Where should I save the files? (another disk)	Dove salvo i file? (su un altro disco)
+Damaged	Danneggiati
+Don't save anything on the disk you want to recover from: you could overwrite the lost files.	Non salvare niente sul disco da cui vuoi recuperare: potresti sovrascrivere i file persi.
+Open a disk image	Apri un'immagine del disco
+Disk images	Immagini di dischi
+Stopping after this part…	Mi fermo alla fine di questa parte…
+{d} {month} {y}	{d} {month} {y}
+{d1}–{d2} {month} {y}	{d1}–{d2} {month} {y}
+{n} photos	{n} foto
+{n} videos	{n} video
+All · {n}	Tutti · {n}
+{n} files	{n} file
+Showing the first {n}; "Select all" takes them all.	Ne mostro i primi {n}; "Seleziona tutto" li prende tutti.
+{n} files selected · {size}	{n} file selezionati · {size}
+Save to: {folder}	Salva su: {folder}
+Part {i} of {n}	Parte {i} di {n}
+Reading {part}…	Leggo {part}…
+Found the folder {folder}: {n} files ({kind}).	Trovata la cartella {folder}: {n} file ({kind}).
+{part}: I can't read the names here. {why}	{part}: qui non riesco a leggere i nomi. {why}
+Done: {n} files found.	Fatto: {n} file trovati.
+Saved in {folder}, divided by type.	Salvati in {folder}, divisi per tipo.
+Encrypted disk: without the password nothing can be read.	Disco cifrato: senza la password non si legge niente.
+SSDs quickly empty deleted files (TRIM is on).	Gli SSD svuotano in fretta i file cancellati (TRIM attivo).
+SSD without TRIM: deleted files may still be there.	SSD senza TRIM: i file cancellati potrebbero esserci ancora.
+This USB drive may empty deleted files (TRIM).	Questo disco USB può svuotare i file cancellati (TRIM).
+USB sticks keep deleted files until you write something else.	Le chiavette conservano i file cancellati finché non scrivi altro.
+Even after formatting, photos are often still there.	Anche dopo una formattazione, le foto spesso sono ancora lì.
+Hard disks keep deleted files until they are overwritten.	I dischi meccanici conservano i file cancellati finché non vengono sovrascritti.
+A disk image is read safely, without touching the disk.	Un'immagine del disco si legge in sicurezza, senza toccare il disco.
+Unknown kind of disk.	Tipo di disco sconosciuto.
+USB stick	Chiavetta USB
+Camera card	Scheda della fotocamera
+Hard disk	Disco meccanico
+Computer disk	Disco del computer
+Disk image	Immagine del disco
+Disk	Disco
+Photos	Foto
+Videos	Video
+Documents	Documenti
+Music	Musica
+Archives	Archivi
+Other	Altro
+Install the missing program and try again.	Installa il programma mancante e riprova.
+Choose a folder on a different disk, so the lost files are not overwritten.	Scegli una cartella su un altro disco, così i file persi non vengono sovrascritti.
+Free some space or choose a bigger disk.	Libera un po' di spazio o scegli un disco più grande.
+Check that the disk is connected; if it makes noises, stop and make an image first.	Controlla che il disco sia collegato; se fa rumori, fermati e fanne prima un'immagine.
+Lagotto can still search for files without their names.	Lagotto può comunque cercare i file senza il loro nome.
+Try again; if it happens again, send a report.	Riprova; se succede di nuovo, invia una segnalazione.
+Lagotto needs your password to read disks.	Lagotto ha bisogno della tua password per leggere i dischi.
+Choose a folder you can write to.	Scegli una cartella in cui puoi scrivere.
+photos and videos	foto e video
+documents	documenti
+music	musica
+everything	tutto
+from any time	di qualsiasi periodo
+from this year	di quest'anno
+from last year	dell'anno scorso
+January	gennaio
+February	febbraio
+March	marzo
+April	aprile
+May	maggio
+June	giugno
+July	luglio
+August	agosto
+September	settembre
+October	ottobre
+November	novembre
+December	dicembre

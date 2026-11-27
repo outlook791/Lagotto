@@ -20,5 +20,10 @@
   <url type="bugtracker">https://github.com/outlook791/Lagotto/issues</url>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="26.11.1" date="2026-11-27">
+      <description>
+        <p>First release: finds deleted files with their names, rebuilds files without names after a format, pause and resume, updates through dnf and Discover.</p>
+      </description>
+    </release>
   </releases>
 </component>

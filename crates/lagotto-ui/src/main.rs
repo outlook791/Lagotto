@@ -35,6 +35,8 @@ struct St {
     helper: Option<Arc<HelperReader>>,
     carve: Option<Arc<dyn CarveJob>>,
     nameless_dir: Option<PathBuf>,
+    /// Nessuna parte del disco ha un filesystem leggibile: la fase 2 legge tutto il disco.
+    no_filesystem: bool,
     chip_kinds: Vec<Option<FileKind>>,
     chip: usize,
     moments: Vec<Moment>,
@@ -499,6 +501,7 @@ fn start_scan(ui: &AppWindow, st: &Shared, stop: Arc<AtomicBool>) {
             }
         };
         let mut zone_total = 1usize;
+        let mut unreadable = 0usize;
         let mut zone_found_before = 0usize;
         let (files, targets) = scan(
             &disk,
@@ -589,6 +592,7 @@ fn start_scan(ui: &AppWindow, st: &Shared, stop: Arc<AtomicBool>) {
                     });
                 }
                 Event::Unreadable { label, error } => {
+                    unreadable += 1;
                     let text = tf(
                         "{part}: I can't read the names here. {why}",
                         &[("part", &label), ("why", &err_text(&error))],
@@ -647,6 +651,7 @@ fn start_scan(ui: &AppWindow, st: &Shared, stop: Arc<AtomicBool>) {
             s.targets = targets;
             s.reader = Some(reader);
             s.helper = helper_arc;
+            s.no_filesystem = unreadable >= zone_total;
             s.selection.clear();
             s.chip = 0;
             s.moment = None;
@@ -701,24 +706,31 @@ fn start_carve(ui: &AppWindow, st: &Shared) {
             let _ = weak.upgrade_in_event_loop(move |ui| ui.set_scan_progress(sv(msg)));
             return;
         }
-        let helper = st.lock().unwrap().helper.clone();
-        let job: Result<Arc<dyn CarveJob>, LagottoError> =
-            if disk.kind == DiskKind::Image || notice::is_root() {
-                start_direct(&disk.path, &nameless, true).map(|j| Arc::new(j) as Arc<dyn CarveJob>)
-            } else {
-                let h = match helper {
-                    Some(h) => Ok(h),
-                    None => HelperReader::default_path()
-                        .ok_or(LagottoError::MissingTool("lagotto-helper".into()))
-                        .and_then(|p| HelperReader::start(&p))
-                        .map(Arc::new),
-                };
-                h.and_then(|h| {
-                    st.lock().unwrap().helper = Some(h.clone());
-                    h.carve_start(&disk.path, &nameless, true)
-                        .map(|j| Arc::new(j) as Arc<dyn CarveJob>)
-                })
+        let (helper, no_fs) = {
+            let s = st.lock().unwrap();
+            (s.helper.clone(), s.no_filesystem)
+        };
+        // Con un filesystem: solo lo spazio libero (dove stanno i file cancellati).
+        // Senza filesystem riconosciuto (formattato male, rovinato): tutto il disco.
+        let freespace = !no_fs;
+        let job: Result<Arc<dyn CarveJob>, LagottoError> = if disk.kind == DiskKind::Image
+            || notice::is_root()
+        {
+            start_direct(&disk.path, &nameless, freespace).map(|j| Arc::new(j) as Arc<dyn CarveJob>)
+        } else {
+            let h = match helper {
+                Some(h) => Ok(h),
+                None => HelperReader::default_path()
+                    .ok_or(LagottoError::MissingTool("lagotto-helper".into()))
+                    .and_then(|p| HelperReader::start(&p))
+                    .map(Arc::new),
             };
+            h.and_then(|h| {
+                st.lock().unwrap().helper = Some(h.clone());
+                h.carve_start(&disk.path, &nameless, freespace)
+                    .map(|j| Arc::new(j) as Arc<dyn CarveJob>)
+            })
+        };
         let job = match job {
             Ok(j) => j,
             Err(e) => {

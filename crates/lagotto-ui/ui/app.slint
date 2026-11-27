@@ -505,12 +505,20 @@ export component AppWindow inherits Window {
                     horizontal-stretch: 1;
                     background: Theme.card; border-radius: 14px; border-width: 1px; border-color: Theme.line;
                     VerticalLayout {
-                        padding-left: 18px; padding-right: 18px; padding-top: 14px; padding-bottom: 14px; spacing: 8px; alignment: start;
+                        padding-left: 18px; padding-right: 8px; padding-top: 14px; padding-bottom: 8px; spacing: 8px;
                         Text { text: Tr.t("SNIFFING DIARY"); font-size: 13px; font-weight: 600; color: Theme.truffle; letter-spacing: 0.5px; }
-                        for line in root.diary: HorizontalLayout {
-                            spacing: 10px;
-                            Text { text: line.time; width: 48px; font-size: 14px; color: Theme.ink2; }
-                            Text { text: line.text; font-size: 14px; color: line.strong ? Theme.ink : Theme.ink2; font-weight: line.strong ? 600 : 400; wrap: word-wrap; horizontal-stretch: 1; }
+                        // Il diario scorre: la finestra non si allunga mai e i pulsanti restano visibili.
+                        ScrollView {
+                            min-height: 60px;
+                            vertical-stretch: 1;
+                            VerticalLayout {
+                                spacing: 8px; alignment: start; padding-right: 10px;
+                                for line in root.diary: HorizontalLayout {
+                                    spacing: 10px;
+                                    Text { text: line.time; width: 48px; font-size: 14px; color: Theme.ink2; }
+                                    Text { text: line.text; font-size: 14px; color: line.strong ? Theme.ink : Theme.ink2; font-weight: line.strong ? 600 : 400; wrap: word-wrap; horizontal-stretch: 1; }
+                                }
+                            }
                         }
                     }
                 }

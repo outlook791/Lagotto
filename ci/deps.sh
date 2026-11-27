@@ -29,6 +29,8 @@ opensuse)
     zypper -n -q in --force-resolution rust cargo gcc pkgconf fontconfig-devel libxkbcommon-devel git python3 \
         sleuthkit testdisk dosfstools mtools e2fsprogs ImageMagick exiftool util-linux xvfb-run xdotool \
         desktop-file-utils AppStream
+    # Su openSUSE PhotoRec è un pacchetto a parte.
+    zypper -n -q in --force-resolution photorec
     ;;
 *)
     echo "unknown distribution: $distro" >&2

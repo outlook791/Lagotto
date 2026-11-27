@@ -30,19 +30,19 @@ Lagotto asks you to accept this the first time it starts; without acceptance it 
 Three steps, one window, a ☰ button for the rest. Lagotto looks the same on KDE Plasma, GNOME, Xfce, Cinnamon and every other desktop.
 
 1. **What did you lose, and where?** Choose the disk. Each disk shows its chances: *high* for USB sticks, camera cards and hard disks; *low* for SSDs that empty deleted files (TRIM), and for encrypted disks. Then complete the sentence *"I'm looking for photos and videos from any time on the USB stick"* by tapping the underlined words.
-2. **Lagotto sniffs.** The disk is drawn like Lagotto's curly coat, and the *sniffing diary* tells you what is happening in plain words. Nothing is written on the disk.
+2. **Lagotto sniffs, in two phases.** Phase 1 finds deleted files with their names (The Sleuth Kit); phase 2, if you want it, rebuilds files without names from the raw content (PhotoRec) and saves them straight into a folder on another disk. The two phases are shown at the top, the disk is drawn like Lagotto's curly coat, and the *sniffing diary* tells you what is happening in plain words. Phase 2 can be paused and resumed. Nothing is written on the disk you recover from.
 3. **Your found moments.** Photos and videos close in time are grouped into moments, from the dates inside the files. Choose files or whole moments, pick a folder on another disk, press *Recover*.
 
 <p align="center"><img src="docs/screenshots/en/scelta.png" width="420" alt="Choosing the disk, with honest chances"> <img src="docs/screenshots/en/results.png" width="420" alt="Found moments and files"></p>
 
-At the end you get how many files came back, how much space they take and how many are damaged (kept in a separate folder). Files are never overwritten: a second copy becomes `name (1).jpg`. Duplicates are skipped.
+At the end you get how many files came back, how much space they take and how many are damaged (kept in a separate folder). Files are never overwritten: a second copy becomes `name (1).jpg`. Duplicates are skipped, also between the two phases: a file found with its name is not kept twice.
 
 ## What it can and cannot do
 
 | | |
 |---|---|
 | ✅ Deleted files **with their names** | FAT, exFAT, NTFS, ext2/3/4, HFS and more, through The Sleuth Kit. On FAT disks the first letter of deleted names is lost: Lagotto shows it as `?`. |
-| ✅ Files **without names**, after formatting | PhotoRec rebuilds more than 480 kinds of files from raw content (command line `--carve` for now; in the window in a later release). |
+| ✅ Files **without names**, after formatting | PhotoRec rebuilds more than 480 kinds of files from raw content: *Search also without names…* after the first phase. It can be paused and resumed. |
 | ✅ Disk images | Open a `.img`/`.dd` file: it is read safely. |
 | ⚠️ ext4 | Names are often lost when a file is deleted; the raw search still works. |
 | ❌ SSDs with TRIM, encrypted disks without the password, overwritten files | No program can bring these back. Lagotto says so before you start. |

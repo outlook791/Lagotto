@@ -78,7 +78,7 @@ fn reply(out: &mut impl Write, r: Result<Reply, LagottoError>) {
         ok: false,
         code: e.code().into(),
         data: e.to_string(),
-        count: 0,
+        ..Default::default()
     });
     let _ = writeln!(out, "{}", serde_json::to_string(&r).unwrap());
     let _ = out.flush();
@@ -109,6 +109,8 @@ fn serve() {
             ..Default::default()
         }),
     );
+    // La ricerca senza nomi in corso, con l'utente a cui restituire i file.
+    let mut job: Option<(lagotto_core::carve::ChildCarve, u32, u32)> = None;
     for line in stdin.lock().lines() {
         let Ok(line) = line else { break };
         let req: Request = match serde_json::from_str(&line) {
@@ -125,7 +127,14 @@ fn serve() {
             }
         };
         match req {
-            Request::Quit => break,
+            Request::Quit => {
+                if let Some((j, uid, gid)) = &job {
+                    use lagotto_core::carve::CarveJob;
+                    let _ = j.stop();
+                    chown_tree(j.out(), *uid, *gid);
+                }
+                break;
+            }
             Request::List { path, offset } => {
                 let r = check_device(&path).and_then(|_| {
                     let t = Target {
@@ -228,13 +237,23 @@ fn serve() {
                     },
                 );
             }
-            Request::Carve {
+            Request::CarveStart {
                 path,
                 out: dir,
                 freespace,
             } => {
                 let r = (|| {
                     check_device(&path)?;
+                    if job
+                        .as_ref()
+                        .map(|(j, ..)| j.poll().running)
+                        .unwrap_or(false)
+                    {
+                        return Err(LagottoError::ToolFailed {
+                            tool: "photorec".into(),
+                            detail: "already running".into(),
+                        });
+                    }
                     let (uid, gid) = caller_ids().ok_or(LagottoError::NotAuthorized)?;
                     // La cartella deve esistere ed essere dell'utente che ha chiesto.
                     let m = std::fs::metadata(&dir)
@@ -242,36 +261,77 @@ fn serve() {
                     if !m.is_dir() || m.uid() != uid {
                         return Err(LagottoError::BadDestination(dir.display().to_string()));
                     }
-                    let st = Command::new(tool("photorec")?)
-                        .args(lagotto_core::carve::photorec_args(&path, &dir, freespace))
-                        .current_dir(&dir)
-                        .stdin(Stdio::null())
-                        .stdout(Stdio::null())
-                        .stderr(Stdio::null())
-                        .status()
-                        .map_err(|e| LagottoError::ToolFailed {
-                            tool: "photorec".into(),
-                            detail: e.to_string(),
-                        })?;
-                    chown_tree(&dir, uid, gid);
-                    if !st.success() {
-                        return Err(LagottoError::ToolFailed {
-                            tool: "photorec".into(),
-                            detail: format!("exit {st}"),
-                        });
-                    }
-                    Ok(lagotto_core::carve::count_files(&dir))
+                    let child = lagotto_core::carve::spawn(
+                        Path::new(&tool("photorec")?),
+                        &path,
+                        &dir,
+                        freespace,
+                    )?;
+                    job = Some((
+                        lagotto_core::carve::ChildCarve::new(child, dir.clone()),
+                        uid,
+                        gid,
+                    ));
+                    Ok(())
                 })();
                 reply(
                     &mut out,
-                    r.map(|count| Reply {
+                    r.map(|_| Reply {
                         ok: true,
-                        count,
                         ..Default::default()
                     }),
                 );
             }
+            Request::CarveStatus => {
+                let r = match &job {
+                    Some((j, uid, gid)) => {
+                        let st = j.poll();
+                        // I file ricostruiti tornano all'utente man mano.
+                        chown_tree(j.out(), *uid, *gid);
+                        Ok(Reply {
+                            ok: true,
+                            carve: Some(st),
+                            ..Default::default()
+                        })
+                    }
+                    None => Err(LagottoError::ToolFailed {
+                        tool: "photorec".into(),
+                        detail: "not running".into(),
+                    }),
+                };
+                reply(&mut out, r);
+            }
+            Request::CarvePause | Request::CarveResume | Request::CarveStop => {
+                use lagotto_core::carve::CarveJob;
+                let r = match &job {
+                    Some((j, uid, gid)) => {
+                        let res = match req {
+                            Request::CarvePause => j.pause(),
+                            Request::CarveResume => j.resume(),
+                            _ => j.stop(),
+                        };
+                        chown_tree(j.out(), *uid, *gid);
+                        res.map(|_| Reply {
+                            ok: true,
+                            ..Default::default()
+                        })
+                    }
+                    None => Err(LagottoError::ToolFailed {
+                        tool: "photorec".into(),
+                        detail: "not running".into(),
+                    }),
+                };
+                reply(&mut out, r);
+            }
         }
+    }
+    // Lagotto chiuso all'improvviso: niente PhotoRec orfano come amministratore.
+    if let Some((j, uid, gid)) = &job {
+        use lagotto_core::carve::CarveJob;
+        if j.poll().running {
+            let _ = j.stop();
+        }
+        chown_tree(j.out(), *uid, *gid);
     }
 }
 

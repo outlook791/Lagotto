@@ -30,19 +30,19 @@ Al primo avvio Lagotto ti chiede di accettare questo avviso; senza accettazione 
 Tre passaggi, una sola finestra, un pulsante ☰ per il resto. Lagotto è uguale su KDE Plasma, GNOME, Xfce, Cinnamon e ogni altro ambiente desktop.
 
 1. **Cosa hai perso, e dove?** Scegli il disco. Ogni disco mostra le sue probabilità: *alte* per chiavette, schede della fotocamera e dischi meccanici; *basse* per gli SSD che svuotano i file cancellati (TRIM) e per i dischi cifrati. Poi completa la frase *"Cerco foto e video di qualsiasi periodo sulla chiavetta USB"* toccando le parole sottolineate.
-2. **Il Lagotto annusa.** Il disco è disegnato come il pelo riccio del Lagotto e il *diario del fiuto* racconta cosa succede, con parole normali. Sul disco non viene scritto niente.
+2. **Il Lagotto annusa, in due fasi.** La fase 1 trova i file cancellati con il loro nome (The Sleuth Kit); la fase 2, se la vuoi, ricostruisce i file senza nome dal contenuto grezzo (PhotoRec) e li salva subito in una cartella su un altro disco. Le due fasi sono indicate in alto, il disco è disegnato come il pelo riccio del Lagotto e il *diario del fiuto* racconta cosa succede, con parole normali. La fase 2 si può sospendere e riprendere. Sul disco da cui recuperi non viene scritto niente.
 3. **I tuoi momenti ritrovati.** Foto e video vicini nel tempo diventano momenti, grazie alle date contenute nei file. Scegli i file o momenti interi, una cartella su un altro disco, e premi *Recupera*.
 
 <p align="center"><img src="docs/screenshots/it/scelta.png" width="420" alt="La scelta del disco, con probabilità oneste"> <img src="docs/screenshots/it/results.png" width="420" alt="Momenti e file ritrovati"></p>
 
-Alla fine vedi quanti file sono tornati, quanto spazio occupano e quanti sono danneggiati (messi in una cartella a parte). I file non vengono mai sovrascritti: una seconda copia diventa `nome (1).jpg`. I doppioni vengono saltati.
+Alla fine vedi quanti file sono tornati, quanto spazio occupano e quanti sono danneggiati (messi in una cartella a parte). I file non vengono mai sovrascritti: una seconda copia diventa `nome (1).jpg`. I doppioni vengono saltati, anche tra le due fasi: un file trovato con il nome non viene tenuto due volte.
 
 ## Cosa può e non può fare
 
 | | |
 |---|---|
 | ✅ File cancellati **con il loro nome** | FAT, exFAT, NTFS, ext2/3/4, HFS e altri, con The Sleuth Kit. Sui dischi FAT la prima lettera dei nomi cancellati va persa: Lagotto la mostra come `?`. |
-| ✅ File **senza nome**, dopo una formattazione | PhotoRec ricostruisce più di 480 tipi di file dal contenuto grezzo (per ora da riga di comando con `--carve`; nella finestra in un prossimo rilascio). |
+| ✅ File **senza nome**, dopo una formattazione | PhotoRec ricostruisce più di 480 tipi di file dal contenuto grezzo: *Cerca anche senza nomi…* dopo la prima fase. Si può sospendere e riprendere. |
 | ✅ Immagini dei dischi | Apri un file `.img`/`.dd`: si legge in sicurezza. |
 | ⚠️ ext4 | Quando un file viene cancellato, spesso il nome si perde; la ricerca grezza funziona comunque. |
 | ❌ SSD con TRIM, dischi cifrati senza password, file sovrascritti | Nessun programma li riporta indietro. Lagotto lo dice prima di iniziare. |

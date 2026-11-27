@@ -35,7 +35,6 @@ Damaged files	File danneggiati
 Empty	Vuoto
 Still to read	Ancora da leggere
 SNIFFING DIARY	IL DIARIO DEL FIUTO
-files found	file trovati
 Stop	Ferma
 See and recover what was found	Guarda e recupera i trovati
 YOUR FOUND MOMENTS	I TUOI MOMENTI RITROVATI
@@ -54,7 +53,6 @@ Guide	Guida
 About Lagotto	Informazioni su Lagotto
 Quit	Esci
 in use by the system	in uso dal sistema
-This disk holds the running system: anything you do may overwrite files. Better to use the Lagotto live USB.	Su questo disco gira il sistema: qualsiasi cosa fai può sovrascrivere i file. Meglio usare la chiavetta live di Lagotto.
 All the files	Tutti i file
 A "?" at the start of a name: on this kind of disk the first letter of deleted names is lost.	Un "?" all'inizio del nome: su questo tipo di disco la prima lettera dei nomi cancellati va persa.
 Tap the files to choose them	Tocca i file per sceglierli
@@ -131,3 +129,22 @@ September	settembre
 October	ottobre
 November	novembre
 December	dicembre
+Lagotto is resting (paused)	Il Lagotto si riposa (in pausa)
+Phase 1 · with names (Sleuth Kit)	Fase 1 · con i nomi (Sleuth Kit)
+Phase 2 · without names (PhotoRec)	Fase 2 · senza nomi (PhotoRec)
+found with their names	trovati con il nome
+rebuilt without names	ricostruiti senza nome
+Resume	Riprendi
+Pause	Sospendi
+Search also without names…	Cerca anche senza nomi…
+The system runs here: anything you do may overwrite files.	Qui gira il sistema: qualsiasi cosa fai può sovrascrivere i file.
+This SSD empties deleted files (TRIM): their names and often their contents are already gone. You can still try the search without names.	Questo SSD svuota i file cancellati (TRIM): i nomi e spesso anche i contenuti non ci sono più. Puoi comunque provare la ricerca senza nomi.
+No files with their names here. Try the search without names: it finds files even after formatting.	Qui non ci sono file con il nome. Prova la ricerca senza nomi: trova i file anche dopo una formattazione.
+Without names	Senza nome
+Phase 2: I'm rebuilding files from the raw content of the disk. It reads the whole disk: it can take a long time.	Fase 2: ricostruisco i file dal contenuto grezzo del disco. Legge tutto il disco: può durare a lungo.
+Phase 2 of 2	Fase 2 di 2
+{n} files rebuilt without names so far.	{n} file ricostruiti senza nome finora.
+Phase 2 finished: {n} files rebuilt without names.	Fase 2 finita: {n} file ricostruiti senza nome.
+Phase 2 stopped: {n} files rebuilt without names.	Fase 2 fermata: {n} file ricostruiti senza nome.
+{n} files rebuilt without names are already saved in {folder}.	{n} file ricostruiti senza nome sono già salvati in {folder}.
+Plus {n} files rebuilt without names, in their own folder.	In più {n} file ricostruiti senza nome, in una cartella a parte.

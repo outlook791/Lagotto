@@ -3,6 +3,7 @@
 mod i18n;
 
 use i18n::{t, tf};
+use lagotto_core::carve::{start_direct, CarveJob};
 use lagotto_core::disks::{human_size, list_disks};
 use lagotto_core::found::{FileKind, FileState, FoundFile};
 use lagotto_core::helper::HelperReader;
@@ -10,7 +11,7 @@ use lagotto_core::moments::{group, ymd, Moment};
 use lagotto_core::recover::{check_destination, recover, Options};
 use lagotto_core::scan::{scan, DirectReader, Event, Reader, Target};
 use lagotto_core::{notice, Disk, DiskKind, LagottoError, Probability};
-use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -31,6 +32,9 @@ struct St {
     files: Vec<FoundFile>,
     targets: Vec<Target>,
     reader: Option<Arc<dyn Reader>>,
+    helper: Option<Arc<HelperReader>>,
+    carve: Option<Arc<dyn CarveJob>>,
+    nameless_dir: Option<PathBuf>,
     chip_kinds: Vec<Option<FileKind>>,
     chip: usize,
     moments: Vec<Moment>,
@@ -141,13 +145,18 @@ fn disk_cards(disks: &[Disk]) -> Vec<DiskCard> {
         .iter()
         .map(|d| {
             let (p, why) = d.probability();
-            let mut subtitle = format!("{} · {}", if d.model.is_empty() { t(d.kind_label()) } else { d.model.clone() }, human_size(d.size));
+            let mut subtitle = human_size(d.size);
             if d.system {
                 subtitle.push_str(" · ");
                 subtitle.push_str(&t("in use by the system"));
             }
             DiskCard {
                 title: sv(t(d.kind_label())),
+                model: sv(if d.model.is_empty() {
+                    "—".to_string()
+                } else {
+                    d.model.replace('_', " ")
+                }),
                 subtitle: sv(subtitle),
                 kind: match d.kind {
                     DiskKind::UsbStick => 0,
@@ -163,7 +172,7 @@ fn disk_cards(disks: &[Disk]) -> Vec<DiskCard> {
                     Probability::Low => 0,
                 },
                 reason: sv(if d.system {
-                    t("This disk holds the running system: anything you do may overwrite files. Better to use the Lagotto live USB.")
+                    t("The system runs here: anything you do may overwrite files.")
                 } else {
                     t(why)
                 }),
@@ -400,9 +409,20 @@ fn start_scan(ui: &AppWindow, st: &Shared, stop: Arc<AtomicBool>) {
     ui.set_status_text(sv(""));
     ui.set_screen(3);
     ui.set_scanning(true);
+    ui.set_carving(false);
+    ui.set_paused(false);
+    ui.set_can_carve(false);
+    ui.set_phase1_state(1);
+    ui.set_phase2_state(0);
+    ui.set_nameless_count(0);
+    {
+        let mut s = st.lock().unwrap();
+        s.nameless_dir = None;
+        s.carve = None;
+    }
     ui.set_found_count(0);
     ui.set_scan_subtitle(sv(format!(
-        "· {} · {}",
+        "{} · {}",
         t(disk.kind_label()),
         human_size(disk.size)
     )));
@@ -443,6 +463,7 @@ fn start_scan(ui: &AppWindow, st: &Shared, stop: Arc<AtomicBool>) {
             });
         };
         // Chi legge il disco: diretto per le immagini, altrimenti l'helper con la password.
+        let mut helper_arc: Option<Arc<HelperReader>> = None;
         let reader: Arc<dyn Reader> = if disk.kind == DiskKind::Image || notice::is_root() {
             Arc::new(DirectReader)
         } else {
@@ -461,7 +482,11 @@ fn start_scan(ui: &AppWindow, st: &Shared, stop: Arc<AtomicBool>) {
                 .ok_or(LagottoError::MissingTool("lagotto-helper".into()))
                 .and_then(|p| HelperReader::start(&p))
             {
-                Ok(r) => Arc::new(r),
+                Ok(r) => {
+                    let h = Arc::new(r);
+                    helper_arc = Some(h.clone());
+                    h
+                }
                 Err(e) => {
                     let msg = err_text(&e);
                     let _ = weak.upgrade_in_event_loop(move |ui| {
@@ -587,7 +612,15 @@ fn start_scan(ui: &AppWindow, st: &Shared, stop: Arc<AtomicBool>) {
                     );
                 }
                 Event::Done { total } => {
-                    let text = tf("Done: {n} files found.", &[("n", &total.to_string())]);
+                    let mut text = tf("Done: {n} files found.", &[("n", &total.to_string())]);
+                    if total == 0 {
+                        text.push(' ');
+                        text.push_str(&if disk.kind == DiskKind::Ssd && disk.trim {
+                            t("This SSD empties deleted files (TRIM): their names and often their contents are already gone. You can still try the search without names.")
+                        } else {
+                            t("No files with their names here. Try the search without names: it finds files even after formatting.")
+                        });
+                    }
                     let mut c = curls.lock().unwrap();
                     for cell in c.iter_mut().filter(|x| **x == 0 || **x == 4) {
                         *cell = 1;
@@ -613,11 +646,175 @@ fn start_scan(ui: &AppWindow, st: &Shared, stop: Arc<AtomicBool>) {
             s.files = files;
             s.targets = targets;
             s.reader = Some(reader);
+            s.helper = helper_arc;
             s.selection.clear();
             s.chip = 0;
             s.moment = None;
         }
-        let _ = weak.upgrade_in_event_loop(move |ui| ui.set_scanning(false));
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            ui.set_scanning(false);
+            ui.set_phase1_state(2);
+            ui.set_can_carve(true);
+        });
+    });
+}
+
+/// Cartella del giorno dentro la destinazione: "Lagotto 2026-11-27".
+fn day_folder() -> String {
+    let (y, m, d) = ymd(std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0));
+    format!("Lagotto {y}-{m:02}-{d:02}")
+}
+
+/// Fase 2: ricerca senza nomi con PhotoRec, in una cartella su un altro disco.
+fn start_carve(ui: &AppWindow, st: &Shared) {
+    let weak = ui.as_weak();
+    let st = st.clone();
+    std::thread::spawn(move || {
+        // Serve una cartella su un altro disco: PhotoRec ci scrive i file man mano.
+        let dest = st.lock().unwrap().dest.clone();
+        let dest = match dest {
+            Some(d) => d,
+            None => match rfd::FileDialog::new()
+                .set_title(t("Where should I save the files? (another disk)"))
+                .pick_folder()
+            {
+                Some(d) => d,
+                None => return,
+            },
+        };
+        let disk = {
+            let s = st.lock().unwrap();
+            s.selected.and_then(|i| s.disks.get(i)).cloned()
+        };
+        let Some(disk) = disk else { return };
+        if let Err(e) = check_destination(&dest, &disk, 0) {
+            let msg = err_text(&e);
+            let _ = weak.upgrade_in_event_loop(move |ui| ui.set_scan_progress(sv(msg)));
+            return;
+        }
+        let nameless = dest.join(day_folder()).join(t("Without names"));
+        if let Err(e) = std::fs::create_dir_all(&nameless) {
+            let msg = e.to_string();
+            let _ = weak.upgrade_in_event_loop(move |ui| ui.set_scan_progress(sv(msg)));
+            return;
+        }
+        let helper = st.lock().unwrap().helper.clone();
+        let job: Result<Arc<dyn CarveJob>, LagottoError> =
+            if disk.kind == DiskKind::Image || notice::is_root() {
+                start_direct(&disk.path, &nameless, true).map(|j| Arc::new(j) as Arc<dyn CarveJob>)
+            } else {
+                let h = match helper {
+                    Some(h) => Ok(h),
+                    None => HelperReader::default_path()
+                        .ok_or(LagottoError::MissingTool("lagotto-helper".into()))
+                        .and_then(|p| HelperReader::start(&p))
+                        .map(Arc::new),
+                };
+                h.and_then(|h| {
+                    st.lock().unwrap().helper = Some(h.clone());
+                    h.carve_start(&disk.path, &nameless, true)
+                        .map(|j| Arc::new(j) as Arc<dyn CarveJob>)
+                })
+            };
+        let job = match job {
+            Ok(j) => j,
+            Err(e) => {
+                let msg = err_text(&e);
+                let _ = weak.upgrade_in_event_loop(move |ui| ui.set_scan_progress(sv(msg)));
+                return;
+            }
+        };
+        {
+            let mut s = st.lock().unwrap();
+            s.dest = Some(dest);
+            s.carve = Some(job.clone());
+            s.nameless_dir = Some(nameless.clone());
+        }
+        let start = Instant::now();
+        let first = DiaryLine {
+            time: sv(elapsed(start)),
+            text: sv(t("Phase 2: I'm rebuilding files from the raw content of the disk. It reads the whole disk: it can take a long time.")),
+            strong: true,
+        };
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            ui.set_scanning(true);
+            ui.set_carving(true);
+            ui.set_paused(false);
+            ui.set_can_carve(false);
+            ui.set_phase2_state(1);
+            ui.set_scan_progress(sv(t("Phase 2 of 2")));
+            let mut lines: Vec<DiaryLine> = vec![first];
+            lines
+                .extend((0..ui.get_diary().row_count()).filter_map(|i| ui.get_diary().row_data(i)));
+            lines.truncate(6);
+            ui.set_diary(ModelRc::new(VecModel::from(lines)));
+        });
+        let mut last_reported = 0usize;
+        let res = lagotto_core::carve::wait(job.as_ref(), |cs| {
+            let n = cs.files;
+            let note = (n >= last_reported + 25 || (n > 0 && last_reported == 0)).then(|| {
+                last_reported = n;
+                DiaryLine {
+                    time: sv(elapsed(start)),
+                    text: sv(tf(
+                        "{n} files rebuilt without names so far.",
+                        &[("n", &n.to_string())],
+                    )),
+                    strong: false,
+                }
+            });
+            let paused = cs.paused;
+            let _ = weak.upgrade_in_event_loop(move |ui| {
+                ui.set_nameless_count(n as i32);
+                ui.set_paused(paused);
+                if let Some(line) = note {
+                    let mut lines: Vec<DiaryLine> = vec![line];
+                    lines.extend(
+                        (0..ui.get_diary().row_count()).filter_map(|i| ui.get_diary().row_data(i)),
+                    );
+                    lines.truncate(6);
+                    ui.set_diary(ModelRc::new(VecModel::from(lines)));
+                }
+            });
+        });
+        let n = lagotto_core::carve::count_files(&nameless);
+        let text = match res {
+            Ok(cs) if cs.ok => tf(
+                "Phase 2 finished: {n} files rebuilt without names.",
+                &[("n", &n.to_string())],
+            ),
+            Ok(_) => tf(
+                "Phase 2 stopped: {n} files rebuilt without names.",
+                &[("n", &n.to_string())],
+            ),
+            Err(e) => err_text(&e),
+        };
+        st.lock().unwrap().carve = None;
+        let folder = nameless.display().to_string();
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            ui.set_scanning(false);
+            ui.set_carving(false);
+            ui.set_paused(false);
+            ui.set_phase2_state(2);
+            ui.set_nameless_count(n as i32);
+            ui.set_scan_progress(sv(t("Finished")));
+            ui.set_nameless_text(sv(tf(
+                "{n} files rebuilt without names are already saved in {folder}.",
+                &[("n", &n.to_string()), ("folder", &folder)],
+            )));
+            let mut lines: Vec<DiaryLine> = vec![DiaryLine {
+                time: sv(elapsed(start)),
+                text: sv(text),
+                strong: true,
+            }];
+            lines
+                .extend((0..ui.get_diary().row_count()).filter_map(|i| ui.get_diary().row_data(i)));
+            lines.truncate(6);
+            ui.set_diary(ModelRc::new(VecModel::from(lines)));
+        });
     });
 }
 
@@ -654,7 +851,7 @@ fn choose_destination(ui: &AppWindow, st: &Shared) {
 }
 
 fn do_recover(ui: &AppWindow, st: &Shared) {
-    let (files, targets, reader, dest, disk) = {
+    let (files, targets, reader, dest, disk, nameless) = {
         let s = st.lock().unwrap();
         let Some(reader) = s.reader.clone() else {
             return;
@@ -671,6 +868,7 @@ fn do_recover(ui: &AppWindow, st: &Shared) {
             reader,
             dest,
             disk,
+            s.nameless_dir.clone(),
         )
     };
     let needed: u64 = files.iter().map(|f| f.size).sum();
@@ -686,10 +884,12 @@ fn do_recover(ui: &AppWindow, st: &Shared) {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0));
+        let _ = (y, m, d);
         let opts = Options {
-            folder_name: format!("Lagotto {y}-{m:02}-{d:02}"),
+            folder_name: day_folder(),
             kind_folder: Box::new(|k| t(k.label())),
             damaged_folder: t("Damaged"),
+            nameless_dir: nameless.clone(),
         };
         let refs: Vec<&FoundFile> = files.iter().collect();
         let w2 = weak.clone();
@@ -713,10 +913,22 @@ fn do_recover(ui: &AppWindow, st: &Shared) {
                 ui.set_done_count(sv(sum.recovered.to_string()));
                 ui.set_done_size(sv(human_size(sum.bytes)));
                 ui.set_done_damaged(sv(sum.damaged.to_string()));
-                ui.set_done_folder(sv(tf(
+                let mut where_text = tf(
                     "Saved in {folder}, divided by type.",
                     &[("folder", &sum.folder.display().to_string())],
-                )));
+                );
+                if let Some(n) = nameless
+                    .as_ref()
+                    .map(|d| lagotto_core::carve::count_files(d))
+                    .filter(|n| *n > 0)
+                {
+                    where_text.push(' ');
+                    where_text.push_str(&tf(
+                        "Plus {n} files rebuilt without names, in their own folder.",
+                        &[("n", &n.to_string())],
+                    ));
+                }
+                ui.set_done_folder(sv(where_text));
                 ui.set_screen(6);
                 FOLDER.lock().unwrap().replace(sum.folder);
             }
@@ -738,9 +950,19 @@ fn main() -> Result<(), slint::PlatformError> {
     i18n::init();
     let ui = AppWindow::new()?;
     ui.global::<Tr>().on_t(|s| sv(t(&s)));
+    // Senza window manager (chiavetta live, backend linuxkms) la finestra non ha cornice.
+    ui.set_standalone(
+        std::env::var("SLINT_BACKEND")
+            .map(|b| b.contains("linuxkms"))
+            .unwrap_or(false),
+    );
     ui.global::<Tr>().set_rtl(i18n::RTL.contains(&i18n::lang()));
     ui.set_first_hint(sv(t("Don't save anything on the disk you want to recover from: you could overwrite the lost files.")));
     let st: Shared = Arc::new(Mutex::new(St::default()));
+    // Solo per le prove automatiche e le schermate: cartella di destinazione già scelta.
+    if let Some(d) = std::env::var_os("LAGOTTO_TEST_DEST") {
+        st.lock().unwrap().dest = Some(PathBuf::from(d));
+    }
     let stop = Arc::new(AtomicBool::new(false));
 
     if notice::accepted() {
@@ -844,12 +1066,48 @@ fn main() -> Result<(), slint::PlatformError> {
     }
     {
         let stop = stop.clone();
-        let w = ui.as_weak();
+        let (w, st) = (ui.as_weak(), st.clone());
         ui.on_pause_scan(move || {
-            // Tappa 0: Sleuth Kit non si interrompe a metà; si ferma alla fine della parte in corso.
-            stop.store(true, Ordering::SeqCst);
-            w.unwrap()
-                .set_scan_progress(sv(t("Stopping after this part…")));
+            // Fase 2: PhotoRec si ferma subito. Fase 1: Sleuth Kit finisce la parte in corso.
+            let job = st.lock().unwrap().carve.clone();
+            match job {
+                Some(j) => {
+                    std::thread::spawn(move || {
+                        let _ = j.stop();
+                    });
+                }
+                None => {
+                    stop.store(true, Ordering::SeqCst);
+                    w.unwrap()
+                        .set_scan_progress(sv(t("Stopping after this part…")));
+                }
+            }
+        });
+    }
+    {
+        let (w, st) = (ui.as_weak(), st.clone());
+        ui.on_toggle_pause(move || {
+            let ui = w.unwrap();
+            let Some(j) = st.lock().unwrap().carve.clone() else {
+                return;
+            };
+            let pause = !ui.get_paused();
+            ui.set_paused(pause);
+            std::thread::spawn(move || {
+                let _ = if pause { j.pause() } else { j.resume() };
+            });
+        });
+    }
+    {
+        let (w, st) = (ui.as_weak(), st.clone());
+        ui.on_start_carve(move || start_carve(&w.unwrap(), &st));
+    }
+    {
+        let st = st.clone();
+        ui.on_open_nameless(move || {
+            if let Some(d) = st.lock().unwrap().nameless_dir.clone() {
+                open_path(&d.display().to_string());
+            }
         });
     }
     {

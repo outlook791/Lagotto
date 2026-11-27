@@ -30,11 +30,15 @@ pub enum Request {
         offset: Option<u64>,
         inode: String,
     },
-    Carve {
+    CarveStart {
         path: PathBuf,
         out: PathBuf,
         freespace: bool,
     },
+    CarveStatus,
+    CarvePause,
+    CarveResume,
+    CarveStop,
     Quit,
 }
 
@@ -47,6 +51,8 @@ pub struct Reply {
     pub code: String,
     #[serde(default)]
     pub count: usize,
+    #[serde(default)]
+    pub carve: Option<crate::carve::CarveStatus>,
 }
 
 pub fn error_from_code(code: &str, data: &str) -> LagottoError {
@@ -131,14 +137,45 @@ impl HelperReader {
         Ok(r)
     }
 
-    pub fn carve(&self, path: &Path, out: &Path, freespace: bool) -> Result<usize, LagottoError> {
+    /// Avvia la ricerca senza nomi nell'helper; restituisce il lavoro da seguire.
+    pub fn carve_start(
+        self: &std::sync::Arc<Self>,
+        path: &Path,
+        out: &Path,
+        freespace: bool,
+    ) -> Result<HelperCarve, LagottoError> {
+        self.request(&Request::CarveStart {
+            path: path.into(),
+            out: out.into(),
+            freespace,
+        })?;
+        Ok(HelperCarve {
+            helper: self.clone(),
+        })
+    }
+}
+
+/// Ricerca senza nomi che gira dentro l'helper (con i permessi di amministratore).
+pub struct HelperCarve {
+    helper: std::sync::Arc<HelperReader>,
+}
+
+impl crate::carve::CarveJob for HelperCarve {
+    fn status(&self) -> Result<crate::carve::CarveStatus, LagottoError> {
         Ok(self
-            .request(&Request::Carve {
-                path: path.into(),
-                out: out.into(),
-                freespace,
-            })?
-            .count)
+            .helper
+            .request(&Request::CarveStatus)?
+            .carve
+            .unwrap_or_default())
+    }
+    fn pause(&self) -> Result<(), LagottoError> {
+        self.helper.request(&Request::CarvePause).map(|_| ())
+    }
+    fn resume(&self) -> Result<(), LagottoError> {
+        self.helper.request(&Request::CarveResume).map(|_| ())
+    }
+    fn stop(&self) -> Result<(), LagottoError> {
+        self.helper.request(&Request::CarveStop).map(|_| ())
     }
 }
 

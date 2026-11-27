@@ -5,6 +5,7 @@
 //!   lagotto recover <disco|immagine> <cartella> [--kind photo|video|document|music|archive|other] [--carve]
 //!   lagotto --accept-risk     (accetta l'avviso, una volta)
 
+use lagotto_core::carve::{self, start_direct, CarveJob};
 use lagotto_core::disks::{human_size, list_disks};
 use lagotto_core::found::FileKind;
 use lagotto_core::helper::HelperReader;
@@ -13,6 +14,7 @@ use lagotto_core::scan::{scan, DirectReader, Event, Reader};
 use lagotto_core::{notice, Disk, DiskKind};
 use std::path::{Path, PathBuf};
 use std::process::exit;
+use std::sync::Arc;
 
 fn die(msg: impl std::fmt::Display) -> ! {
     eprintln!("lagotto: {msg}");
@@ -40,13 +42,15 @@ fn resolve(arg: &str) -> Disk {
     Disk::from_image(p).unwrap_or_else(|e| die(e))
 }
 
-fn reader_for(disk: &Disk) -> Box<dyn Reader> {
+/// Chi legge il disco: diretto (immagini, amministratore) o l'helper con la password.
+fn reader_for(disk: &Disk) -> (Arc<dyn Reader>, Option<Arc<HelperReader>>) {
     if disk.kind == DiskKind::Image || notice::is_root() {
-        return Box::new(DirectReader);
+        return (Arc::new(DirectReader), None);
     }
     let helper = HelperReader::default_path()
         .unwrap_or_else(|| die("lagotto-helper not found next to lagotto"));
-    Box::new(HelperReader::start(&helper).unwrap_or_else(|e| die(e)))
+    let h = Arc::new(HelperReader::start(&helper).unwrap_or_else(|e| die(e)));
+    (h.clone(), Some(h))
 }
 
 fn kind_arg(s: &str) -> FileKind {
@@ -106,7 +110,7 @@ fn main() {
                     .map(String::as_str)
                     .unwrap_or_else(|| die("which disk or image?")),
             );
-            let reader = reader_for(&disk);
+            let (reader, _helper) = reader_for(&disk);
             let (files, _) = scan(&disk, reader.as_ref(), &|| false, |e| {
                 if !json {
                     match e {
@@ -142,7 +146,7 @@ fn main() {
                 .position(|a| a == "--kind")
                 .and_then(|i| args.get(i + 1))
                 .map(|s| kind_arg(s));
-            let reader = reader_for(&disk);
+            let (reader, helper) = reader_for(&disk);
             let (files, targets) = scan(&disk, reader.as_ref(), &|| false, |_| {});
             let chosen: Vec<_> = files
                 .iter()
@@ -150,29 +154,41 @@ fn main() {
                 .collect();
             let needed: u64 = chosen.iter().map(|f| f.size).sum();
             check_destination(&dest, &disk, needed).unwrap_or_else(|e| die(e));
+            let root = dest.join("Lagotto");
+            let nameless = root.join("Without names");
+            if args.iter().any(|a| a == "--carve") {
+                // Fase 2, senza nomi: PhotoRec legge la sorgente e scrive solo qui.
+                std::fs::create_dir_all(&nameless).unwrap_or_else(|e| die(e));
+                let job: Box<dyn CarveJob> = match &helper {
+                    None => Box::new(
+                        start_direct(&disk.path, &nameless, true).unwrap_or_else(|e| die(e)),
+                    ),
+                    Some(h) => Box::new(
+                        h.carve_start(&disk.path, &nameless, true)
+                            .unwrap_or_else(|e| die(e)),
+                    ),
+                };
+                let st = carve::wait(job.as_ref(), |st| {
+                    if !json {
+                        eprint!("\r{} files rebuilt without names", st.files);
+                    }
+                })
+                .unwrap_or_else(|e| die(e));
+                if !json {
+                    eprintln!();
+                }
+                if !st.ok {
+                    eprintln!("PhotoRec stopped with an error");
+                }
+            }
             let opts = Options {
                 folder_name: "Lagotto".into(),
                 kind_folder: Box::new(|k| k.label().to_string()),
                 damaged_folder: "Damaged".into(),
+                nameless_dir: nameless.is_dir().then(|| nameless.clone()),
             };
             let sum = recover(&chosen, &targets, reader.as_ref(), &dest, &opts, |_, _| {})
                 .unwrap_or_else(|e| die(e));
-            if args.iter().any(|a| a == "--carve") {
-                // Senza nomi: PhotoRec legge la sorgente e scrive solo qui.
-                let out = sum.folder.join("Without names");
-                let n = if disk.kind == DiskKind::Image || notice::is_root() {
-                    lagotto_core::carve::run_direct(&disk.path, &out, true)
-                } else {
-                    std::fs::create_dir_all(&out).unwrap_or_else(|e| die(e));
-                    let helper = HelperReader::default_path()
-                        .unwrap_or_else(|| die("lagotto-helper not found"));
-                    HelperReader::start(&helper).and_then(|h| h.carve(&disk.path, &out, true))
-                };
-                match n {
-                    Ok(n) => eprintln!("{n} files rebuilt without names in {}", out.display()),
-                    Err(e) => eprintln!("{e}"),
-                }
-            }
             if json {
                 println!("{}", serde_json::to_string_pretty(&sum).unwrap());
             } else {

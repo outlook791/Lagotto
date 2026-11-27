@@ -208,12 +208,14 @@ pub struct Summary {
 }
 
 pub struct Options {
-    /// Nome della cartella principale ("Lagotto 2026-11-27").
+    /// Nome della cartella principale ("Lagotto 2026-11-27"), creata dentro la destinazione.
     pub folder_name: String,
     /// Nome tradotto della sottocartella di ogni tipo.
     pub kind_folder: Box<dyn Fn(FileKind) -> String + Send + Sync>,
     /// Nome tradotto della cartella dei file danneggiati.
     pub damaged_folder: String,
+    /// Cartella dei file ricostruiti senza nome, da cui togliere i doppioni.
+    pub nameless_dir: Option<PathBuf>,
 }
 
 /// Recupera i file scelti. `progress(fatti, totale)` a ogni file.
@@ -225,7 +227,8 @@ pub fn recover(
     opts: &Options,
     mut progress: impl FnMut(usize, usize),
 ) -> Result<Summary, LagottoError> {
-    let root = unique_path(dest, &opts.folder_name);
+    // Stessa cartella del giorno anche per la ricerca senza nomi: i nomi non si sovrascrivono mai.
+    let root = dest.join(&opts.folder_name);
     fs::create_dir_all(&root)
         .map_err(|_| LagottoError::BadDestination(root.display().to_string()))?;
     let mut sum = Summary {
@@ -312,7 +315,63 @@ pub fn recover(
         sum.bytes += f.size;
     }
     progress(files.len(), files.len());
+    // I file ricostruiti senza nome che sono uguali a un file recuperato con il nome: doppioni.
+    if let Some(dir) = &opts.nameless_dir {
+        sum.duplicates += remove_duplicates(dir, &seen);
+    }
     Ok(sum)
+}
+
+/// Impronta SHA-256 di un file.
+pub fn hash_file(p: &Path) -> Option<[u8; 32]> {
+    let mut f = File::open(p).ok()?;
+    let mut h = Sha256::new();
+    std::io::copy(&mut f, &mut HashSink(&mut h)).ok()?;
+    Some(h.finalize().into())
+}
+
+struct HashSink<'a>(&'a mut Sha256);
+impl Write for HashSink<'_> {
+    fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
+        self.0.update(b);
+        Ok(b.len())
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// Toglie da `dir` i file con un'impronta già vista, e i doppioni tra loro.
+pub fn remove_duplicates(dir: &Path, known: &HashSet<[u8; 32]>) -> usize {
+    let mut seen = known.clone();
+    let mut removed = 0;
+    let mut stack = vec![dir.to_path_buf()];
+    let mut files = vec![];
+    while let Some(d) = stack.pop() {
+        if let Ok(rd) = fs::read_dir(&d) {
+            for e in rd.flatten() {
+                let p = e.path();
+                if p.is_dir() {
+                    stack.push(p);
+                } else if p
+                    .extension()
+                    .map(|x| x != "xml" && x != "log" && x != "ses")
+                    .unwrap_or(true)
+                {
+                    files.push(p);
+                }
+            }
+        }
+    }
+    files.sort();
+    for p in files {
+        if let Some(h) = hash_file(&p) {
+            if !seen.insert(h) && fs::remove_file(&p).is_ok() {
+                removed += 1;
+            }
+        }
+    }
+    removed
 }
 
 struct HashWriter {

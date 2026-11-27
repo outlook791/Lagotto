@@ -22,6 +22,7 @@ global Theme {
     out property <color> truffle-bg: dark ? #3a2f25 : #F3ECE3;
     out property <color> on-truffle: dark ? #1f1b17 : #FFFFFF;
     out property <color> nose: dark ? #E6D7C6 : #2B1D12;
+    out property <color> nose-mark: dark ? #9c8672 : #8a7462;
     out property <color> good: #2E7D4F;
     out property <color> good-bg: dark ? #1e3a2a : #E6F2EA;
     out property <color> good-ink: dark ? #9ED9B5 : #1F5C38;
@@ -36,7 +37,7 @@ global Theme {
     out property <color> hint-ink: dark ? #F0D9A8 : #5C4313;
 }
 
-export struct DiskCard { title: string, subtitle: string, kind: int, prob: int, reason: string, system: bool }
+export struct DiskCard { title: string, model: string, subtitle: string, kind: int, prob: int, reason: string, system: bool }
 export struct DiaryLine { time: string, text: string, strong: bool }
 export struct Curl { state: int }   // 0 da leggere, 1 vuoto, 2 integro, 3 danneggiato, 4 qui adesso
 export struct MomentCard { title: string, subtitle: string }
@@ -95,45 +96,69 @@ component Token inherits Rectangle {
     TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
 }
 
-component Nose inherits Path {
-    in property <bool> breathing: false;
-    width: 34px; height: 28px;
-    viewbox-width: 68; viewbox-height: 56;
-    fill: Theme.nose;
-    commands: "M4 14 q30 -26 60 0 q-6 34 -30 40 q-24 -6 -30 -40z";
+// Il naso del Lagotto: l'indicatore di lavoro ("sta annusando").
+component Nose inherits Rectangle {
+    width: 40px; height: 32px;
     accessible-role: image;
     accessible-label: Tr.t("Lagotto is sniffing");
+    Path {
+        width: parent.width; height: parent.height;
+        viewbox-width: 68; viewbox-height: 52;
+        fill: Theme.nose;
+        commands: "M4 18 C4 4 64 4 64 18 C64 32 48 46 34 48 C20 46 4 32 4 18 Z";
+    }
+    Path {
+        width: parent.width; height: parent.height;
+        viewbox-width: 68; viewbox-height: 52;
+        stroke: Theme.nose-mark; stroke-width: 2.6px; fill: transparent;
+        commands: "M27 31 C22 27 14 28 10 33 M41 31 C46 27 54 28 58 33";
+    }
+    Path {
+        width: parent.width; height: parent.height;
+        viewbox-width: 68; viewbox-height: 52;
+        stroke: Theme.nose-mark; stroke-width: 1.2px; fill: transparent;
+        commands: "M27 31 Q31 35 34 34 Q37 35 41 31 M34 34 L34 47";
+    }
+    Path {
+        width: parent.width; height: parent.height;
+        viewbox-width: 68; viewbox-height: 52;
+        fill: #ffffff45;
+        commands: "M14 11 C20 7 30 7 33 9 C27 12 19 13 14 11 Z";
+    }
 }
 
+// Barra in alto dentro la finestra. La cornice del sistema (KDE, GNOME…) ha già
+// la sua ✕: qui solo il ☰. Senza cornice (chiavetta live) compaiono nome e ✕.
 component TitleBar inherits Rectangle {
     in property <string> subtitle;
+    in property <bool> standalone: false;
     callback menu;
     callback close;
-    height: 48px;
-    background: Theme.bar;
-    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; }
+    height: 44px;
+    background: standalone ? Theme.bar : Theme.bg;
+    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.line; visible: standalone; }
     HorizontalLayout {
         padding-left: 20px; padding-right: 12px; spacing: 10px;
-        alignment: space-between;
         HorizontalLayout {
             spacing: 10px;
             alignment: start;
-            Image { source: @image-url("lagotto.svg"); width: 26px; height: 26px; y: 11px; accessible-role: none; }
-            Text { text: "Lagotto"; font-weight: 600; font-size: 15px; color: Theme.ink; vertical-alignment: center; }
-            Text { text: root.subtitle; font-size: 15px; color: Theme.ink2; vertical-alignment: center; }
+            horizontal-stretch: 1;
+            if standalone: Image { source: @image-url("lagotto.svg"); width: 26px; height: 26px; y: 9px; accessible-role: none; }
+            if standalone: Text { text: "Lagotto"; font-weight: 600; font-size: 15px; color: Theme.ink; vertical-alignment: center; }
+            Text { text: root.subtitle; font-size: 14px; color: Theme.ink2; vertical-alignment: center; overflow: elide; }
         }
         HorizontalLayout {
             spacing: 4px;
             Rectangle {
-                width: 44px; height: 36px; y: 6px; border-radius: 8px;
+                width: 44px; height: 36px; y: 4px; border-radius: 8px;
                 background: m.has-hover ? Theme.line : transparent;
                 accessible-role: button; accessible-label: Tr.t("Menu");
                 accessible-action-default => { root.menu(); }
                 Text { text: "☰"; font-size: 18px; color: Theme.ink3; }
                 m := TouchArea { clicked => { root.menu(); } }
             }
-            Rectangle {
-                width: 44px; height: 36px; y: 6px; border-radius: 8px;
+            if standalone: Rectangle {
+                width: 44px; height: 36px; y: 4px; border-radius: 8px;
                 background: c.has-hover ? Theme.line : transparent;
                 accessible-role: button; accessible-label: Tr.t("Close");
                 accessible-action-default => { root.close(); }
@@ -171,7 +196,7 @@ component DiskView inherits Rectangle {
     border-width: selected ? 2px : 1px;
     border-color: selected ? Theme.truffle : Theme.line;
     accessible-role: button;
-    accessible-label: disk.title + ", " + disk.subtitle;
+    accessible-label: disk.title + ", " + disk.model + ", " + disk.subtitle + ". " + disk.reason;
     accessible-action-default => { clicked(); }
     VerticalLayout {
         padding: 18px; spacing: 8px; alignment: start;
@@ -185,8 +210,10 @@ component DiskView inherits Rectangle {
                 : disk.kind == 4 ? "M20 20 m-14 0 a14 14 0 1 0 28 0 a14 14 0 1 0 -28 0 M20 20 m-3 0 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0"
                 : "M5 10 h30 v20 h-30 z M10 25 h8";
         }
-        Text { text: disk.title; font-size: 16px; font-weight: 600; color: Theme.ink; wrap: word-wrap; }
-        Text { text: disk.subtitle; font-size: 13px; color: Theme.ink2; wrap: word-wrap; }
+        Text { text: disk.title; font-size: 16px; font-weight: 600; color: Theme.ink; overflow: elide; }
+        // Nomi dei modelli lunghi: una riga, tagliata con "…".
+        Text { text: disk.model; font-size: 13px; color: Theme.ink2; overflow: elide; }
+        Text { text: disk.subtitle; font-size: 13px; color: Theme.ink2; overflow: elide; }
         HorizontalLayout { alignment: start; Badge { prob: disk.prob; } }
         Text { text: disk.reason; font-size: 13px; color: Theme.ink2; wrap: word-wrap; }
     }
@@ -278,6 +305,13 @@ export component AppWindow inherits Window {
     in property <int> found-count;
     in property <int> damaged-count;
     in property <bool> scanning: false;
+    in property <bool> carving: false;
+    in property <bool> paused: false;
+    in property <bool> can-carve: false;
+    in property <int> nameless-count;
+    in property <int> phase1-state;   // 0 da fare, 1 in corso, 2 fatta
+    in property <int> phase2-state;
+    in property <string> nameless-text;
 
     // Risultati
     in property <[KindChip]> chips;
@@ -299,6 +333,8 @@ export component AppWindow inherits Window {
     in property <float> recover-progress;
 
     in-out property <bool> menu-open: false;
+    // Senza cornice del sistema (chiavetta live): nome e ✕ nella nostra barra.
+    in property <bool> standalone: false;
     in-out property <bool> nose-up: false;
 
     callback accept-notice;
@@ -309,6 +345,9 @@ export component AppWindow inherits Window {
     callback start-scan();
     callback open-image();
     callback pause-scan();
+    callback toggle-pause();
+    callback start-carve();
+    callback open-nameless();
     callback show-results();
     callback pick-chip(int);
     callback pick-moment(int);
@@ -322,10 +361,11 @@ export component AppWindow inherits Window {
     callback open-about();
     callback refresh-disks();
 
-    timer := Timer { interval: 900ms; running: root.scanning; triggered => { root.nose-up = !root.nose-up; } }
+    timer := Timer { interval: 900ms; running: root.scanning && !root.paused; triggered => { root.nose-up = !root.nose-up; } }
 
     VerticalLayout {
         TitleBar {
+            standalone: root.standalone;
             subtitle: root.screen == 3 || root.screen == 4 ? root.scan-subtitle : "";
             menu => { root.menu-open = !root.menu-open; }
             close => { root.quit(); }
@@ -358,12 +398,12 @@ export component AppWindow inherits Window {
             Text { text: Tr.t("What did you lose, and where?"); font-size: 28px; font-weight: 700; color: Theme.ink; }
             if root.disks.length == 0: Text { text: Tr.t("No disks found. Connect the disk, then press Refresh."); color: Theme.ink2; font-size: 15px; wrap: word-wrap; }
             if root.disks.length > 0: ScrollView {
-                height: 232px;
-                content-width: root.disks.length * 216px;
-                content-height: 220px;
+                height: 262px;
+                content-width: root.disks.length * 226px;
+                content-height: 250px;
                 for d[i] in root.disks: DiskView {
-                    x: i * 216px; y: 0;
-                    width: 200px; height: 220px;
+                    x: i * 226px; y: 0;
+                    width: 210px; height: 250px;
                     disk: d;
                     selected: i == root.selected-disk;
                     clicked => { root.pick-disk(i); }
@@ -405,9 +445,27 @@ export component AppWindow inherits Window {
             HorizontalLayout {
                 spacing: 12px;
                 Nose { opacity: root.nose-up ? 1 : 0.55; animate opacity { duration: 800ms; easing: ease-in-out; } }
-                Text { text: root.scanning ? Tr.t("Lagotto is sniffing…") : Tr.t("Lagotto has finished sniffing"); font-size: 28px; font-weight: 700; color: Theme.ink; vertical-alignment: center; }
+                Text { text: root.paused ? Tr.t("Lagotto is resting (paused)") : root.scanning ? Tr.t("Lagotto is sniffing…") : Tr.t("Lagotto has finished sniffing"); font-size: 28px; font-weight: 700; color: Theme.ink; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; }
                 Text { text: root.scan-progress; font-size: 14px; color: Theme.ink2; vertical-alignment: center; }
+            }
+            // Quale motore sta lavorando: fase 1 con i nomi, fase 2 senza nomi.
+            HorizontalLayout {
+                spacing: 8px; alignment: start;
+                for ph[i] in [
+                    { label: Tr.t("Phase 1 · with names (Sleuth Kit)"), state: root.phase1-state },
+                    { label: Tr.t("Phase 2 · without names (PhotoRec)"), state: root.phase2-state },
+                ]: Rectangle {
+                    height: 32px; width: phl.preferred-width + 28px; border-radius: 16px;
+                    background: ph.state == 1 ? Theme.truffle-bg : Theme.card;
+                    border-width: ph.state == 1 ? 2px : 1px;
+                    border-color: ph.state == 1 ? Theme.truffle : Theme.line2;
+                    phl := Text {
+                        text: (ph.state == 2 ? "✓ " : ph.state == 1 ? "● " : "○ ") + ph.label;
+                        font-size: 13px; font-weight: ph.state == 1 ? 600 : 400;
+                        color: ph.state == 0 ? Theme.ink2 : Theme.ink;
+                    }
+                }
             }
             Rectangle {
                 background: Theme.card; border-radius: 14px; border-width: 1px; border-color: Theme.line;
@@ -462,14 +520,26 @@ export component AppWindow inherits Window {
                         background: Theme.card; border-radius: 14px; border-width: 1px; border-color: Theme.line; height: 72px;
                         VerticalLayout { padding: 12px; padding-left: 16px;
                             Text { text: root.found-count; font-size: 24px; font-weight: 700; color: Theme.ink; }
-                            Text { text: Tr.t("files found"); font-size: 13px; color: Theme.ink2; } }
+                            Text { text: Tr.t("found with their names"); font-size: 13px; color: Theme.ink2; overflow: elide; } }
+                    }
+                    Rectangle {
+                        background: Theme.card; border-radius: 14px; border-width: 1px; border-color: Theme.line; height: 72px;
+                        VerticalLayout { padding: 12px; padding-left: 16px;
+                            Text { text: root.nameless-count; font-size: 24px; font-weight: 700; color: Theme.ink; }
+                            Text { text: Tr.t("rebuilt without names"); font-size: 13px; color: Theme.ink2; overflow: elide; } }
                     }
                 }
             }
             HorizontalLayout {
-                alignment: space-between;
+                spacing: 12px;
                 Button { text: Tr.t("Stop"); enabled: root.scanning; clicked => { root.pause-scan(); } }
-                Button { text: Tr.t("See and recover what was found"); primary: true; enabled: root.found-count > 0; clicked => { root.show-results(); } }
+                if root.carving: Button {
+                    text: root.paused ? Tr.t("Resume") : Tr.t("Pause");
+                    clicked => { root.toggle-pause(); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                if root.can-carve: Button { text: Tr.t("Search also without names…"); clicked => { root.start-carve(); } }
+                Button { text: Tr.t("See and recover what was found"); primary: true; enabled: !root.scanning && (root.found-count > 0 || root.nameless-count > 0); clicked => { root.show-results(); } }
             }
         }
 
@@ -503,6 +573,17 @@ export component AppWindow inherits Window {
                             Text { text: m.title; font-size: 15px; font-weight: 600; color: Theme.ink; overflow: elide; }
                             Text { text: m.subtitle; font-size: 13px; color: Theme.ink2; overflow: elide; } }
                         TouchArea { mouse-cursor: pointer; clicked => { root.pick-moment(i); } }
+                    }
+                }
+            }
+            if root.nameless-count > 0: Rectangle {
+                height: 48px; border-radius: 12px; background: Theme.good-bg;
+                HorizontalLayout {
+                    padding-left: 16px; padding-right: 8px; spacing: 12px;
+                    Text { text: root.nameless-text; font-size: 14px; color: Theme.good-ink; vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
+                    Text {
+                        text: Tr.t("Open the folder"); font-size: 14px; font-weight: 600; color: Theme.good-ink; vertical-alignment: center;
+                        TouchArea { mouse-cursor: pointer; clicked => { root.open-nameless(); } }
                     }
                 }
             }
@@ -597,7 +678,7 @@ export component AppWindow inherits Window {
         clicked => { root.menu-open = false; }
     }
     if root.menu-open: Rectangle {
-        x: root.width - 260px; y: 46px; width: 240px; height: menu-layout.preferred-height;
+        x: root.width - 260px; y: 42px; width: 240px; height: menu-layout.preferred-height;
         background: Theme.card; border-radius: 12px; border-width: 1px; border-color: Theme.line;
         drop-shadow-blur: 16px; drop-shadow-color: #0003;
         menu-layout := VerticalLayout {

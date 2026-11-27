@@ -27,7 +27,7 @@ Lagotto asks you to accept this the first time it starts; without acceptance it 
 
 ## How it works
 
-Three steps, one window, a ☰ button for the rest. Lagotto looks the same on KDE Plasma, GNOME, Xfce, Cinnamon and every other desktop.
+Three steps, one window, no menus: everything you need is in sight. Lagotto looks the same on KDE Plasma, GNOME, Xfce, Cinnamon and every other desktop.
 
 1. **What did you lose, and where?** Choose the disk. Each disk shows its chances: *high* for USB sticks, camera cards and hard disks; *low* for SSDs that empty deleted files (TRIM), and for encrypted disks. Then complete the sentence *"I'm looking for photos and videos from any time on the USB stick"* by tapping the underlined words.
 2. **Lagotto sniffs, in two phases.** Phase 1 finds deleted files with their names (The Sleuth Kit); phase 2, if you want it, rebuilds files without names from the raw content (PhotoRec) and saves them straight into a folder on another disk. The two phases are shown at the top, the disk is drawn like Lagotto's curly coat, and the *sniffing diary* tells you what is happening in plain words. Phase 2 can be paused and resumed. Nothing is written on the disk you recover from.
@@ -51,13 +51,15 @@ Reading a real disk needs administrator permission: Lagotto asks for your passwo
 
 ## Install
 
-**Fedora (and other RPM distributions):** download `lagotto-….rpm` from the [latest release](https://github.com/outlook791/Lagotto/releases/latest), then:
+**Fedora:** add the Lagotto repository and install it:
 
 ```sh
-sudo dnf install ./lagotto-*.rpm
+sudo curl -fsSLo /etc/yum.repos.d/lagotto.repo https://outlook791.github.io/Lagotto/rpm/lagotto.repo && sudo dnf install lagotto
 ```
 
-It also installs what Lagotto needs (The Sleuth Kit, TestDisk). Lagotto then appears in the app menu. To remove it: `sudo dnf remove lagotto`.
+The first time, dnf asks you to accept the key that signs Lagotto's packages. It also installs what Lagotto needs (The Sleuth Kit, TestDisk), and Lagotto appears in the app menu. **Updates arrive by themselves**, together with the system ones: in Discover, GNOME Software or with `sudo dnf upgrade`. To remove it: `sudo dnf remove lagotto`.
+
+The `lagotto-….rpm` file is also in the [latest release](https://github.com/outlook791/Lagotto/releases/latest) (`sudo dnf install ./lagotto-*.rpm`): it installs the same repository, so updates arrive by themselves this way too.
 
 Packages for other distributions will follow.
 

@@ -110,7 +110,36 @@ jobs:
           lagotto --help
           test -x /usr/libexec/lagotto-helper
           test -f /usr/share/polkit-1/actions/io.github.outlook791.Lagotto.policy
+          grep -q '^gpgcheck=1' /etc/yum.repos.d/lagotto.repo
           desktop-file-validate /usr/share/applications/io.github.outlook791.Lagotto.desktop
           command -v fls && command -v photorec
           printf '{"op":"quit"}\n' | /usr/libexec/lagotto-helper serve | grep -q '"ok":true'
           echo "Package OK"
+
+  repository:
+    name: Updates repository (signed, installed with dnf)
+    needs: package
+    runs-on: ubuntu-latest
+    container: "fedora:latest"
+    steps:
+      - run: dnf -y -q install git
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          name: lagotto-rpm
+          path: dist
+      - name: Sign with a throwaway key, build the repository, install from it
+        run: |
+          dnf -y -q install gnupg2
+          export GNUPGHOME=$(mktemp -d)
+          gpg --batch --quiet --pinentry-mode loopback --passphrase '' \
+            --quick-gen-key "Lagotto test <test@example.invalid>" rsa4096 sign never
+          RPM_SIGNING_KEY="$(gpg --batch --armor --export-secret-keys)" scripts/sign-and-repo.sh
+          unset GNUPGHOME
+          sed -e "s|https://outlook791.github.io/Lagotto/rpm/|file://$PWD/site/rpm/|" \
+              packaging/lagotto.repo > /etc/yum.repos.d/lagotto.repo
+          dnf -y -q install lagotto
+          rpm -q lagotto
+          rpm -qi lagotto | grep -i '^Signature' | grep -vi none
+          echo "Repository OK"
+

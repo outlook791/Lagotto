@@ -28,7 +28,7 @@ recovery is. Lagotto is written with an AI assistant.
 
 %install
 mkdir -p %{buildroot}
-cp -a usr %{buildroot}/
+cp -a usr etc %{buildroot}/
 
 %files
 %license LICENSE
@@ -39,3 +39,5 @@ cp -a usr %{buildroot}/
 %{_datadir}/icons/hicolor/scalable/apps/io.github.outlook791.Lagotto.svg
 %{_datadir}/metainfo/io.github.outlook791.Lagotto.metainfo.xml
 %{_datadir}/polkit-1/actions/io.github.outlook791.Lagotto.policy
+# Il repository di Lagotto: gli aggiornamenti arrivano con dnf e Discover.
+%config(noreplace) %{_sysconfdir}/yum.repos.d/lagotto.repo

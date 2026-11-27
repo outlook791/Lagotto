@@ -1,4 +1,4 @@
-// Lagotto: l'interfaccia. Una sola finestra, un pulsante ☰, nessuna barra dei menu.
+// Lagotto: l'interfaccia. Una sola finestra, nessun menu: le azioni sono in vista.
 // I testi passano tutti da Tr.t("…") (testo sorgente inglese, tradotto da Rust).
 
 import { Palette, ScrollView, CheckBox } from "std-widgets.slint";
@@ -128,11 +128,10 @@ component Nose inherits Rectangle {
 }
 
 // Barra in alto dentro la finestra. La cornice del sistema (KDE, GNOME…) ha già
-// la sua ✕: qui solo il ☰. Senza cornice (chiavetta live) compaiono nome e ✕.
+// la sua ✕. Senza cornice (chiavetta live) compaiono nome e ✕ di Lagotto.
 component TitleBar inherits Rectangle {
     in property <string> subtitle;
     in property <bool> standalone: false;
-    callback menu;
     callback close;
     height: 44px;
     background: standalone ? Theme.bar : Theme.bg;
@@ -149,14 +148,6 @@ component TitleBar inherits Rectangle {
         }
         HorizontalLayout {
             spacing: 4px;
-            Rectangle {
-                width: 44px; height: 36px; y: 4px; border-radius: 8px;
-                background: m.has-hover ? Theme.line : transparent;
-                accessible-role: button; accessible-label: Tr.t("Menu");
-                accessible-action-default => { root.menu(); }
-                Text { text: "☰"; font-size: 18px; color: Theme.ink3; }
-                m := TouchArea { clicked => { root.menu(); } }
-            }
             if standalone: Rectangle {
                 width: 44px; height: 36px; y: 4px; border-radius: 8px;
                 background: c.has-hover ? Theme.line : transparent;
@@ -332,7 +323,6 @@ export component AppWindow inherits Window {
     in property <string> done-folder;
     in property <float> recover-progress;
 
-    in-out property <bool> menu-open: false;
     // Senza cornice del sistema (chiavetta live): nome e ✕ nella nostra barra.
     in property <bool> standalone: false;
     in-out property <bool> nose-up: false;
@@ -367,7 +357,6 @@ export component AppWindow inherits Window {
         TitleBar {
             standalone: root.standalone;
             subtitle: root.screen == 3 || root.screen == 4 ? root.scan-subtitle : "";
-            menu => { root.menu-open = !root.menu-open; }
             close => { root.quit(); }
         }
 
@@ -435,6 +424,15 @@ export component AppWindow inherits Window {
                 }
                 Text { text: root.status-text; color: Theme.bad-ink; font-size: 13px; vertical-alignment: center; wrap: word-wrap; horizontal-stretch: 1; horizontal-alignment: center; }
                 Button { text: Tr.t("Search"); primary: true; enabled: root.selected-disk >= 0; clicked => { root.start-scan(); } }
+            }
+            HorizontalLayout {
+                alignment: center; spacing: 18px;
+                for l[i] in [Tr.t("Guide"), Tr.t("About Lagotto")]: Text {
+                    text: l; font-size: 13px; color: Theme.truffle;
+                    accessible-role: button; accessible-label: l;
+                    accessible-action-default => { if i == 0 { root.open-guide(); } else { root.open-about(); } }
+                    TouchArea { mouse-cursor: pointer; clicked => { if i == 0 { root.open-guide(); } else { root.open-about(); } } }
+                }
             }
         }
 
@@ -540,7 +538,11 @@ export component AppWindow inherits Window {
             }
             HorizontalLayout {
                 spacing: 12px;
-                Button { text: Tr.t("Stop"); enabled: root.scanning; clicked => { root.pause-scan(); } }
+                // Durante la ricerca: Ferma. Finita: Nuova ricerca.
+                Button {
+                    text: root.scanning ? Tr.t("Stop") : Tr.t("New search");
+                    clicked => { if root.scanning { root.pause-scan(); } else { root.new-search(); } }
+                }
                 if root.carving: Button {
                     text: root.paused ? Tr.t("Resume") : Tr.t("Pause");
                     clicked => { root.toggle-pause(); }
@@ -639,6 +641,7 @@ export component AppWindow inherits Window {
                                 TouchArea { mouse-cursor: pointer; clicked => { root.choose-destination(); } } } }
                         Text { text: root.status-text; font-size: 13px; color: Theme.bad-ink; overflow: elide; }
                     }
+                    Button { y: 12px; text: Tr.t("New search"); clicked => { root.new-search(); } }
                     Button { y: 12px; text: Tr.t("Recover"); primary: true; enabled: root.can-recover; clicked => { root.recover(); } }
                 }
             }
@@ -678,36 +681,6 @@ export component AppWindow inherits Window {
                 Button { text: Tr.t("Open the folder"); primary: true; clicked => { root.open-folder(); } }
                 Button { text: Tr.t("New search"); clicked => { root.new-search(); } } }
             Text { text: Tr.t("Tip: make a regular backup of important files. It is the only sure way not to lose them."); font-size: 13px; color: Theme.ink2; horizontal-alignment: center; wrap: word-wrap; }
-        }
-    }
-
-    // Il menu ☰: sopra tutto, chiuso con un clic fuori.
-    if root.menu-open: TouchArea {
-        clicked => { root.menu-open = false; }
-    }
-    if root.menu-open: Rectangle {
-        x: root.width - 260px; y: 42px; width: 240px; height: menu-layout.preferred-height;
-        background: Theme.card; border-radius: 12px; border-width: 1px; border-color: Theme.line;
-        drop-shadow-blur: 16px; drop-shadow-color: #0003;
-        menu-layout := VerticalLayout {
-            padding: 6px;
-            for item[i] in [Tr.t("New search"), Tr.t("Open a disk image…"), Tr.t("Guide"), Tr.t("About Lagotto"), Tr.t("Quit")]: Rectangle {
-                height: 44px; border-radius: 8px;
-                background: mt.has-hover ? Theme.bar : transparent;
-                accessible-role: button; accessible-label: item;
-                accessible-action-default => { mt.clicked(); }
-                Text { x: 12px; text: item; font-size: 14px; color: Theme.ink; vertical-alignment: center; }
-                mt := TouchArea {
-                    clicked => {
-                        root.menu-open = false;
-                        if i == 0 { root.new-search(); }
-                        if i == 1 { root.open-image(); }
-                        if i == 2 { root.open-guide(); }
-                        if i == 3 { root.open-about(); }
-                        if i == 4 { root.quit(); }
-                    }
-                }
-            }
         }
     }
 }

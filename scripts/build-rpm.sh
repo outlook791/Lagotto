@@ -23,6 +23,7 @@ install -Dm644 data/io.github.outlook791.Lagotto.desktop "$stage/usr/share/appli
 install -Dm644 data/io.github.outlook791.Lagotto.svg "$stage/usr/share/icons/hicolor/scalable/apps/io.github.outlook791.Lagotto.svg"
 install -Dm644 data/io.github.outlook791.Lagotto.metainfo.xml "$stage/usr/share/metainfo/io.github.outlook791.Lagotto.metainfo.xml"
 install -Dm644 data/io.github.outlook791.Lagotto.policy "$stage/usr/share/polkit-1/actions/io.github.outlook791.Lagotto.policy"
+install -Dm644 packaging/lagotto.repo "$stage/etc/yum.repos.d/lagotto.repo"
 install -Dm644 LICENSE "$stage/LICENSE"
 mkdir -p "$top/SOURCES" dist
 tar -C "$stage" -cf "$top/SOURCES/lagotto-staging.tar" .

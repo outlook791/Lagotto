@@ -34,6 +34,32 @@ pub fn ymd(secs: i64) -> (i64, u32, u32) {
     (if m <= 2 { y + 1 } else { y }, m, d)
 }
 
+extern "C" {
+    // Rilegge il fuso orario (variabile TZ o /etc/localtime).
+    fn tzset();
+}
+
+/// Scarto dell'ora locale del computer in quell'istante (ora legale compresa),
+/// in secondi. Se il sistema non lo sa, 0 (UTC).
+pub fn local_offset(secs: i64) -> i64 {
+    // SAFETY: localtime_r scrive solo nella struttura che gli passiamo.
+    unsafe {
+        let t = secs as libc::time_t;
+        let mut tm: libc::tm = std::mem::zeroed();
+        tzset();
+        if libc::localtime_r(&t, &mut tm).is_null() {
+            0
+        } else {
+            tm.tm_gmtoff as i64
+        }
+    }
+}
+
+/// Data civile nell'ora locale del computer: quella da mostrare all'utente.
+pub fn local_ymd(secs: i64) -> (i64, u32, u32) {
+    ymd(secs + local_offset(secs))
+}
+
 /// Raggruppa i file in momenti. Restituisce i momenti (dal più recente) e
 /// gli id dei file che non stanno in nessun momento.
 pub fn group(files: &[FoundFile]) -> (Vec<Moment>, Vec<usize>) {
@@ -103,6 +129,17 @@ mod tests {
         assert_eq!(ymd(0), (1970, 1, 1));
         assert_eq!(ymd(1_786_492_800), (2026, 8, 12));
         assert_eq!(ymd(951_782_400), (2000, 2, 29));
+    }
+
+    #[test]
+    fn local_dates() {
+        // Ora di Perth (UTC+8) scritta come regola POSIX: non servono i dati tz.
+        std::env::set_var("TZ", "AWST-8");
+        // 11 agosto 2026, 20:00 UTC = 12 agosto, 04:00 a Perth.
+        let t = 1_786_492_800 - 4 * 3600;
+        assert_eq!(ymd(t), (2026, 8, 11));
+        assert_eq!(local_offset(t), 8 * 3600);
+        assert_eq!(local_ymd(t), (2026, 8, 12));
     }
 
     #[test]

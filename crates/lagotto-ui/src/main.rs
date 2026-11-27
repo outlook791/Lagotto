@@ -7,7 +7,7 @@ use lagotto_core::carve::{start_direct, CarveJob};
 use lagotto_core::disks::{human_size, list_disks};
 use lagotto_core::found::{FileKind, FileState, FoundFile};
 use lagotto_core::helper::HelperReader;
-use lagotto_core::moments::{group, ymd, Moment};
+use lagotto_core::moments::{group, local_ymd as ymd, Moment};
 use lagotto_core::recover::{check_destination, recover, Options};
 use lagotto_core::scan::{scan, DirectReader, Event, Reader, Target};
 use lagotto_core::{notice, Disk, DiskKind, LagottoError, Probability};
@@ -1201,6 +1201,10 @@ fn main() -> Result<(), slint::PlatformError> {
             let ui = w.unwrap();
             if ui.get_screen() <= 1 {
                 return;
+            }
+            // Una ricerca ancora in corso si ferma prima.
+            if ui.get_scanning() {
+                ui.invoke_pause_scan();
             }
             {
                 let mut s = st.lock().unwrap();

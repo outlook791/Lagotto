@@ -1,0 +1,7 @@
+[lagotto]
+name=Lagotto
+baseurl=https://outlook791.github.io/Lagotto/rpm/
+enabled=1
+gpgcheck=1
+gpgkey=https://outlook791.github.io/Lagotto/rpm/RPM-GPG-KEY-lagotto
+metadata_expire=6h

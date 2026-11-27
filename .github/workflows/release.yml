@@ -20,6 +20,8 @@ on:
 permissions:
   contents: write
   actions: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: release
@@ -28,6 +30,8 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      publish: ${{ steps.rpm.outputs.publish }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -41,11 +45,16 @@ jobs:
           git config user.email outlook791@users.noreply.github.com
           scripts/release.sh "$NOTE"
           git push
-      - name: Main package (RPM, built in Fedora)
+      - name: Main package (RPM, built and signed in Fedora) and updates repository
+        id: rpm
+        env:
+          RPM_SIGNING_KEY: ${{ secrets.RPM_SIGNING_KEY }}
         run: |
           v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-          [ "$v" = "0.0.0" ] && exit 0
-          docker run --rm -v "$PWD:/src" -w /src fedora:latest sh -c 'dnf -y -q install git rpm-build && git config --global --add safe.directory /src && ci/deps.sh fedora && scripts/build-rpm.sh'
+          if [ "$v" = "0.0.0" ]; then echo "publish=false" >> "$GITHUB_OUTPUT"; exit 0; fi
+          docker run --rm -e RPM_SIGNING_KEY -v "$PWD:/src" -w /src fedora:latest sh -c 'dnf -y -q install git rpm-build && git config --global --add safe.directory /src && ci/deps.sh fedora && scripts/build-rpm.sh && scripts/sign-and-repo.sh'
+          sudo chown -R "$(id -u):$(id -g)" dist site
+          echo "publish=true" >> "$GITHUB_OUTPUT"
       - name: Tag and release page
         env:
           GH_TOKEN: ${{ github.token }}
@@ -75,6 +84,11 @@ jobs:
 
           Lagotto is written with an AI assistant. / Lagotto è scritto con un assistente AI."
           gh release create "v$v" --target "$(git rev-parse HEAD)" --title "Lagotto $v" --notes "$body" dist/*.rpm
+      - name: Updates repository for GitHub Pages
+        if: steps.rpm.outputs.publish == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
       - name: Publish the new version (checks)
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -82,3 +96,16 @@ jobs:
         # A push made by this workflow doesn't start other workflows by
         # itself; asking for one explicitly does.
         run: gh workflow run checks.yml --ref main
+
+  # Il repository per dnf e Discover: https://outlook791.github.io/Lagotto/rpm/
+  repository:
+    needs: release
+    if: needs.release.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
